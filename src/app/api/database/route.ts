@@ -14,186 +14,127 @@ const pool = mysql.createPool({
   keepAliveInitialDelay: 0
 })
 
-
-// Add custom error types
-interface DatabaseError extends Error {
-  code?: string;
-}
-
-// Define the correct type for the count query result
-type CountResult = {
-  total: number
-}
-
-// Add this type near the top of the file with other type definitions
-type StoredProcedureResult = [mysql.RowDataPacket[], mysql.RowDataPacket[]]
-
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const view = searchParams.get('view')
-  const page = parseInt(searchParams.get('page') || '1')
-  const limit = parseInt(searchParams.get('limit') || '10')
-  const offset = (page - 1) * limit
-
-  if (view === 'v_booking_trends' || 
-      view === 'v_sæson_analyse' || 
-      view === 'v_kunde_segmentering' ||
-      view === 'v_værelse_performance' ||
-      view === 'v_revpar_analyse') {
-    try {
-      const [rows] = await pool.query(`SELECT * FROM ${view}`)
-      return Response.json({ result: rows })
-    } catch (error) {
-      console.error('Database error:', error)
-      return Response.json(
-        { error: 'Failed to fetch statistics' },
-        { status: 500 }
-      )
-    }
-  }
-
-  if (view === 'v_bookinger') {
-    try {
-      const [bookings] = await pool.query(
-        `SELECT * FROM v_bookinger ORDER BY booking_id DESC LIMIT ? OFFSET ?`,
-        [limit, offset]
-      )
-
-      const totalResult = await pool.query<mysql.RowDataPacket[]>(
-        'SELECT COUNT(*) as total FROM v_bookinger'
-      )
-      const total = (totalResult[0][0] as CountResult).total
-
-      return NextResponse.json({
-        result: {
-          bookings,
-          total
-        }
-      })
-    } catch (error) {
-      console.error('Database error:', error)
-      return NextResponse.json({ error: 'Database error' }, { status: 500 })
-    }
-  }
+  const procedure = searchParams.get('procedure')
 
   try {
-    await pool.getConnection().then(conn => {
-      console.log('Database connected successfully')
-      conn.release()
-    })
+    switch (procedure) {
+      case 'sp_find_ledige_værelser': {
+        const hotelId = searchParams.get('hotel_id')
+        const checkInDato = searchParams.get('check_ind_dato')
+        const checkUdDato = searchParams.get('check_ud_dato')
 
-    const procedure = searchParams.get('procedure')
+        if (!hotelId || !checkInDato || !checkUdDato) {
+          return NextResponse.json(
+            { error: 'Missing required parameters' },
+            { status: 400 }
+          )
+        }
 
-    if (procedure) {
-      switch (procedure) {
-        case 'sp_opret_booking':
-          const gæsteId = searchParams.get('gæste_id')
-          const hotelId = searchParams.get('hotel_id')
-          const værelseId = searchParams.get('værelse_id')
-          const checkIndDato = searchParams.get('check_ind_dato')
-          const checkUdDato = searchParams.get('check_ud_dato')
-          const onlineBooking = searchParams.get('online_booking') === 'true'
-          const fdmMedlem = searchParams.get('fdm_medlem') === 'true'
+        // Query to find available rooms
+        const [rooms] = await pool.query(`
+          SELECT 
+            v.*
+          FROM værelser v
+          WHERE v.hotel_id = ?
+          AND v.værelse_id NOT IN (
+            SELECT b.værelse_id
+            FROM bookinger b
+            WHERE b.hotel_id = ?
+            AND b.booking_status != 'Annulleret'
+            AND (
+              (b.check_ind_dato <= ? AND b.check_ud_dato >= ?)
+              OR (b.check_ind_dato <= ? AND b.check_ud_dato >= ?)
+              OR (b.check_ind_dato >= ? AND b.check_ud_dato <= ?)
+            )
+          )
+        `, [
+          hotelId, hotelId,
+          checkUdDato, checkInDato,
+          checkInDato, checkInDato,
+          checkInDato, checkUdDato
+        ])
 
-          if (!gæsteId || !hotelId || !værelseId || !checkIndDato || !checkUdDato) {
-            return Response.json({ error: 'Missing required parameters' }, { status: 400 })
-          }
-
-          const bookingQuery = `CALL sp_opret_booking(?, ?, ?, ?, ?, ?, ?)`
-          const [bookingRows] = await pool.query<StoredProcedureResult>(bookingQuery, [
-            parseInt(gæsteId),
-            parseInt(hotelId),
-            parseInt(værelseId),
-            checkIndDato,
-            checkUdDato,
-            onlineBooking,
-            fdmMedlem
-          ])
-          return Response.json({ result: bookingRows[0][0] })
-
-        case 'sp_find_ledige_værelser':
-          const findHotelId = searchParams.get('hotel_id')
-          const findCheckIndDato = searchParams.get('check_ind_dato')
-          const findCheckUdDato = searchParams.get('check_ud_dato')
-
-          if (!findHotelId || !findCheckIndDato || !findCheckUdDato) {
-            return Response.json({ error: 'Missing required parameters for finding available rooms' }, { status: 400 })
-          }
-
-          const findQuery = `CALL sp_find_ledige_værelser(?, ?, ?)`
-          const [findRows] = await pool.query<StoredProcedureResult>(findQuery, [
-            parseInt(findHotelId),
-            findCheckIndDato,
-            findCheckUdDato
-          ])
-          return Response.json({ result: findRows[0] })
-
-        default:
-          return Response.json({ error: 'Invalid procedure' }, { status: 400 })
-      }
-    }
-
-    if (view) {
-      let query = ''
-      switch (view) {
-        case 'v_gæster':
-          query = 'SELECT * FROM v_gæster'
-          break
-        case 'v_hoteller':
-          query = 'SELECT * FROM v_hoteller'
-          break
-        case 'v_værelser':
-          query = 'SELECT * FROM v_værelser'
-          break
-        default:
-          const hotelId = searchParams.get('hotel_id')
-          const hotelFilter = hotelId ? `WHERE hotel_id = ${parseInt(hotelId)}` : ''
-          query = `SELECT * FROM ${view} ${hotelFilter}`
+        return NextResponse.json({ result: rooms })
       }
 
-      const [rows] = await pool.query(query)
-      return Response.json({ result: rows })
+      default:
+        return NextResponse.json(
+          { error: 'Invalid procedure' },
+          { status: 400 }
+        )
     }
-
-    return Response.json({ error: 'Invalid request' }, { status: 400 })
   } catch (error) {
-    console.error('Database connection error:', error)
-    return Response.json(
-      { 
-        error: 'Database connection error', 
-        details: error instanceof Error ? error.message : 'Unknown error',
-        code: (error as DatabaseError).code
-      },
+    console.error('Database error:', error)
+    return NextResponse.json(
+      { error: 'Database error' },
       { status: 500 }
     )
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { procedure, params } = body
 
     switch (procedure) {
-      case 'sp_opdater_booking_status':
-        await pool.query('CALL sp_opdater_booking_status(?, ?)', [
-          params.booking_id,
-          params.ny_status
-        ])
-        break
+      case 'sp_rediger_booking': {
+        const {
+          booking_id,
+          værelse_id,
+          check_ind_dato,
+          check_ud_dato
+        } = params
 
-      case 'sp_rediger_booking':
-        await pool.query('CALL sp_rediger_booking(?, ?, ?, ?, ?, ?, ?, ?)', [
-          params.booking_id,
-          params.gæste_id,
-          params.hotel_id,
-          params.værelse_id,
-          params.check_ind_dato,
-          params.check_ud_dato,
-          params.online_booking,
-          params.fdm_medlem
+        if (!booking_id || !værelse_id || !check_ind_dato || !check_ud_dato) {
+          return NextResponse.json(
+            { error: 'Missing required parameters' },
+            { status: 400 }
+          )
+        }
+
+        // First check if the room is available
+        const [conflicts] = await pool.query(`
+          SELECT COUNT(*) as count
+          FROM bookinger
+          WHERE værelse_id = ?
+          AND booking_id != ?
+          AND booking_status != 'Annulleret'
+          AND (
+            (check_ind_dato <= ? AND check_ud_dato >= ?)
+            OR (check_ind_dato <= ? AND check_ud_dato >= ?)
+            OR (check_ind_dato >= ? AND check_ud_dato <= ?)
+          )
+        `, [
+          værelse_id,
+          booking_id,
+          check_ud_dato, check_ind_dato,
+          check_ind_dato, check_ind_dato,
+          check_ind_dato, check_ud_dato
         ])
-        break
+
+        // @ts-expect-error - conflicts[0] type is not properly inferred
+        if (conflicts[0].count > 0) {
+          return NextResponse.json(
+            { error: 'Værelset er ikke ledigt i den valgte periode' },
+            { status: 400 }
+          )
+        }
+
+        // Update the booking
+        await pool.query(`
+          UPDATE bookinger 
+          SET 
+            værelse_id = ?,
+            check_ind_dato = ?,
+            check_ud_dato = ?
+          WHERE booking_id = ?
+        `, [værelse_id, check_ind_dato, check_ud_dato, booking_id])
+
+        return NextResponse.json({ success: true })
+      }
 
       default:
         return NextResponse.json(
@@ -201,8 +142,6 @@ export async function POST(request: Request) {
           { status: 400 }
         )
     }
-
-    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Database error:', error)
     return NextResponse.json(

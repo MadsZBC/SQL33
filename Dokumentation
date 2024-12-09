@@ -1,0 +1,103 @@
+# Database Dokumentation - Skabelon
+
+## Forside
+- **Opgavens Titel:** [Indsæt titel]
+- **Deltagere:**
+  - Mads Iversen (mads51r1@zbc.dk)
+  - Robin Pfeiffer (robin51r1@zbc.dk)
+  - ...
+- **Projektperiode:** 
+  - Start dato: [DD/MM/ÅÅÅÅ]
+  - Slut dato: [DD/MM/ÅÅÅÅ]
+
+**Underskrifter:**
+- ________________ (Mads Iversen)
+- ________________ (Robin Pfeiffer)
+
+## Indholdsfortegnelse
+[Automatisk genereret]
+
+## Opgavebeskrivelse
+[Detaljeret beskrivelse af projektet]
+
+## Problemformulering
+[Beskrivelse af kundens/brugerens problemer]
+
+## Løsningsforslag
+[Begrundelse for valgt løsning]
+
+## Netværkstopologi
+![Netværkstopologi](/src/components/database-diagrams.tsx)
+*Figur 1: Netværkstopologi*[^1]
+
+## UML Diagrammer
+### ER Diagram
+![ER Diagram](/src/components/database-diagrams.tsx)
+*Figur 2: Entity-Relationship Diagram*[^2]
+
+### Klassediagram
+![Klassediagram](/src/components/database-diagrams.tsx)
+*Figur 3: Klassediagram*[^3]
+
+### Database Diagram
+![Database Diagram](/src/components/database-diagrams.tsx)
+*Figur 4: Database Diagram*[^4]
+
+## Overordnet Designbeskrivelse
+### Hardware
+[Beskrivelse af benyttet hardware]
+
+### Software
+[Beskrivelse af benyttet software]
+
+### Netværk
+[Beskrivelse af netværksopsætning]
+
+## Teoriafsnit
+[Gennemgang af relevante teorier]
+
+## Server Dokumentation
+### Opsætningsguide
+[Detaljeret guide til serveropsætning]
+
+### Konfiguration
+[Beskrivelse af serverens konfiguration]
+
+## Login Oplysninger
+| System | Brugernavn | Adgangskode | IP/Adresse |
+|--------|------------|-------------|------------|
+| [System 1] | [Brugernavn] | [Adgangskode] | [IP/Adresse] |
+| [System 2] | [Brugernavn] | [Adgangskode] | [IP/Adresse] |
+
+## Arbejdsfordeling
+### Plan over arbejdsfordeling
+[Fordeling af opgaver mellem gruppedeltagere]
+
+### Logbog
+| Dato | Aktivitet | Udført af | Bemærkninger |
+|------|-----------|-----------|--------------|
+| [Dato] | [Aktivitet] | [Navn] | [Bemærkninger] |
+
+## Diskussion
+[Beskrivelse af projektforløb]
+- Væsentlige punkter fra dagbogen
+- Beskrevne problemer og løsninger
+
+## Konklusion
+[Opsummering af projektet og dets resultater]
+
+## Kilder og Referencer
+[Liste over kilder][^5]
+
+## Bilag
+### SQL Syntax
+```sql
+-- Eksempel på SQL-kode
+SELECT * FROM tabel;
+```
+
+[^1]: Kilde til netværkstopologi
+[^2]: Kilde til ER Diagram
+[^3]: Kilde til Klassediagram
+[^4]: Kilde til Database Diagram
+[^5]: Samlede kildehenvisninger

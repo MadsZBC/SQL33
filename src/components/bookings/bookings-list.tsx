@@ -12,6 +12,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { CalendarIcon, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import { toast } from "sonner"
 
 const ITEMS_PER_PAGE = 10
 
@@ -28,6 +32,13 @@ type Booking = {
   total_pris: number
   gæst_navn?: string
   hotel_navn?: string
+}
+
+type Room = {
+  værelse_id: number
+  værelsestype: string
+  pris: number
+  hotel_id: number
 }
 
 function BookingCardSkeleton() {
@@ -68,16 +79,20 @@ export default function BookingsList() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalBookings, setTotalBookings] = useState(0)
+  const [availableRooms, setAvailableRooms] = useState<Room[]>([])
 
   const fetchBookings = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch('/api/bookings');
       const data = await response.json();
-      setBookings(data);
-      setTotalBookings(data.length);
+      const bookingsData = data.bookings || [];
+      setBookings(Array.isArray(bookingsData) ? bookingsData : []);
+      setTotalBookings(Array.isArray(bookingsData) ? bookingsData.length : 0);
     } catch (error) {
       console.error('Error fetching bookings:', error);
+      setBookings([]);
+      setTotalBookings(0);
     } finally {
       setIsLoading(false);
     }
@@ -104,10 +119,14 @@ export default function BookingsList() {
       })
 
       if (response.ok) {
-        fetchBookings() // Refresh the list
+        await fetchBookings()
+        toast.success('Status blev opdateret')
+      } else {
+        throw new Error('Failed to update status')
       }
     } catch (error) {
       console.error('Error updating booking status:', error)
+      toast.error('Der opstod en fejl ved opdatering af status')
     }
   }
 
@@ -122,31 +141,65 @@ export default function BookingsList() {
           procedure: 'sp_rediger_booking',
           params: {
             booking_id: booking.booking_id,
-            gæste_id: booking.gæste_id,
-            hotel_id: booking.hotel_id,
             værelse_id: booking.værelse_id,
             check_ind_dato: format(new Date(booking.check_ind_dato), 'yyyy-MM-dd'),
-            check_ud_dato: format(new Date(booking.check_ud_dato), 'yyyy-MM-dd'),
-            online_booking: booking.online_booking,
-            fdm_medlem: booking.fdm_medlem
+            check_ud_dato: format(new Date(booking.check_ud_dato), 'yyyy-MM-dd')
           }
         })
       })
 
-      if (response.ok) {
-        setIsEditDialogOpen(false)
-        fetchBookings() // Refresh the list
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update booking')
       }
+
+      // Close dialog and refresh bookings
+      setIsEditDialogOpen(false)
+      await fetchBookings()
+      toast.success('Booking blev opdateret')
     } catch (error) {
       console.error('Error updating booking:', error)
+      toast.error('Der opstod en fejl ved opdatering af booking')
     }
   }
 
-  const filteredBookings = (bookings || []).filter(booking => {
+  const fetchAvailableRooms = async (hotelId: number, checkIn: string, checkOut: string) => {
+    try {
+      const response = await fetch(`/api/database?procedure=sp_find_ledige_værelser&hotel_id=${hotelId}&check_ind_dato=${checkIn}&check_ud_dato=${checkOut}`)
+      const data = await response.json()
+      return data.result || []
+    } catch (error) {
+      console.error('Error fetching rooms:', error)
+      return []
+    }
+  }
+
+  const handleEditDialogOpen = async (booking: Booking) => {
+    setEditingBooking(booking)
+    setIsEditDialogOpen(true)
+    
+    try {
+      const checkInDate = format(new Date(booking.check_ind_dato), 'yyyy-MM-dd')
+      const checkOutDate = format(new Date(booking.check_ud_dato), 'yyyy-MM-dd')
+      
+      const rooms = await fetchAvailableRooms(
+        booking.hotel_id,
+        checkInDate,
+        checkOutDate
+      )
+      console.log('Available rooms:', rooms)
+      setAvailableRooms(rooms)
+    } catch (error) {
+      console.error('Error fetching available rooms:', error)
+      setAvailableRooms([])
+    }
+  }
+
+  const filteredBookings = bookings.filter(booking => {
     const matchesSearch = 
       booking.booking_id.toString().includes(searchTerm) ||
-      booking.gæst_navn?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.hotel_navn?.toLowerCase().includes(searchTerm.toLowerCase())
+      (booking.gæst_navn?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (booking.hotel_navn?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     
     const matchesStatus = statusFilter === 'all' || booking.booking_status === statusFilter
     
@@ -233,17 +286,26 @@ export default function BookingsList() {
           </>
         ) : (
           filteredBookings.map((booking) => (
-            <div
+            <Card
               key={booking.booking_id}
-              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+              className="p-6 hover:bg-muted/50 transition-colors"
             >
-              <div className="flex justify-between items-start mb-2">
+              <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="font-semibold">
-                    Booking #{booking.booking_id} - {booking.gæst_navn}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {booking.hotel_navn} - Værelse {booking.værelse_id}
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-lg">
+                      Booking #{booking.booking_id}
+                    </h3>
+                    <Badge variant={
+                      booking.booking_status === 'Bekræftet' ? 'default' :
+                      booking.booking_status === 'Afventende' ? 'secondary' :
+                      'destructive'
+                    }>
+                      {booking.booking_status}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground">
+                    {booking.gæst_navn}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -265,65 +327,107 @@ export default function BookingsList() {
                     <DialogTrigger asChild>
                       <Button 
                         variant="outline"
-                        onClick={() => setEditingBooking(booking)}
+                        onClick={() => handleEditDialogOpen(booking)}
                       >
                         Rediger
                       </Button>
                     </DialogTrigger>
                     {editingBooking && (
-                      <DialogContent className="max-w-md">
+                      <DialogContent className="max-w-2xl">
                         <DialogHeader>
                           <DialogTitle>Rediger Booking #{editingBooking.booking_id}</DialogTitle>
                         </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                          <div className="grid gap-2">
-                            <Label>Check-ind Dato</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button variant="outline" className={cn("justify-start text-left font-normal")}>
-                                  <CalendarIcon className="mr-2 h-4 w-4" />
-                                  {format(new Date(editingBooking.check_ind_dato), 'PPP')}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                  mode="single"
-                                  selected={new Date(editingBooking.check_ind_dato)}
-                                  onSelect={(date) => setEditingBooking(prev => ({
-                                    ...prev!,
-                                    check_ind_dato: date?.toISOString() || prev!.check_ind_dato
-                                  }))}
-                                />
-                              </PopoverContent>
-                            </Popover>
+                        <div className="grid gap-6 py-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Check-ind Dato</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" className="w-full justify-start">
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {format(new Date(editingBooking.check_ind_dato), 'PPP')}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                  <Calendar
+                                    mode="single"
+                                    selected={new Date(editingBooking.check_ind_dato)}
+                                    onSelect={(date) => setEditingBooking(prev => ({
+                                      ...prev!,
+                                      check_ind_dato: date?.toISOString() || prev!.check_ind_dato
+                                    }))}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Check-ud Dato</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" className="w-full justify-start">
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {format(new Date(editingBooking.check_ud_dato), 'PPP')}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                  <Calendar
+                                    mode="single"
+                                    selected={new Date(editingBooking.check_ud_dato)}
+                                    onSelect={(date) => setEditingBooking(prev => ({
+                                      ...prev!,
+                                      check_ud_dato: date?.toISOString() || prev!.check_ud_dato
+                                    }))}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                           </div>
 
-                          <div className="grid gap-2">
-                            <Label>Check-ud Dato</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button variant="outline" className={cn("justify-start text-left font-normal")}>
-                                  <CalendarIcon className="mr-2 h-4 w-4" />
-                                  {format(new Date(editingBooking.check_ud_dato), 'PPP')}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                  mode="single"
-                                  selected={new Date(editingBooking.check_ud_dato)}
-                                  onSelect={(date) => setEditingBooking(prev => ({
-                                    ...prev!,
-                                    check_ud_dato: date?.toISOString() || prev!.check_ud_dato
-                                  }))}
-                                />
-                              </PopoverContent>
-                            </Popover>
+                          <Separator />
+
+                          <div className="space-y-2">
+                            <Label>Vælg værelse</Label>
+                            <Select
+                              defaultValue={editingBooking.værelse_id.toString()}
+                              onValueChange={(value) => {
+                                console.log('Selected room:', value)
+                                setEditingBooking(prev => prev ? {
+                                  ...prev,
+                                  værelse_id: parseInt(value)
+                                } : null)
+                              }}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Vælg et værelse" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem 
+                                  key={editingBooking.værelse_id} 
+                                  value={editingBooking.værelse_id.toString()}
+                                >
+                                  Nuværende værelse ({editingBooking.værelse_id})
+                                </SelectItem>
+                                
+                                {availableRooms.map((room) => (
+                                  <SelectItem 
+                                    key={room.værelse_id} 
+                                    value={room.værelse_id.toString()}
+                                  >
+                                    Værelse {room.værelse_id} - {room.værelsestype} - {room.pris} kr.
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
 
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-4 mt-4">
                             <Button
                               variant="outline"
-                              onClick={() => setIsEditDialogOpen(false)}
+                              onClick={() => {
+                                setIsEditDialogOpen(false)
+                                setEditingBooking(null)
+                              }}
                             >
                               Annuller
                             </Button>
@@ -339,18 +443,28 @@ export default function BookingsList() {
                   </Dialog>
                 </div>
               </div>
+              <Separator className="my-4" />
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Hotel</p>
+                  <p>{booking.hotel_navn} - Værelse {booking.værelse_id}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Datoer</p>
                   <p>Check-ind: {format(new Date(booking.check_ind_dato), 'PPP')}</p>
                   <p>Check-ud: {format(new Date(booking.check_ud_dato), 'PPP')}</p>
                 </div>
-                <div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Booking detaljer</p>
                   <p>Online booking: {booking.online_booking ? 'Ja' : 'Nej'}</p>
                   <p>FDM medlem: {booking.fdm_medlem ? 'Ja' : 'Nej'}</p>
-                  <p>Total pris: {booking.total_pris} kr.</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Pris</p>
+                  <p className="text-lg font-semibold">{booking.total_pris} kr.</p>
                 </div>
               </div>
-            </div>
+            </Card>
           ))
         )}
       </div>

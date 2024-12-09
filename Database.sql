@@ -40,7 +40,9 @@ CREATE TABLE `gæster` (
     PRIMARY KEY (`gæste_id`),
     CONSTRAINT `chk_email` CHECK (
         `email` REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}$'
-    )
+    ),
+    CONSTRAINT chk_telefon 
+    CHECK (telefon_nummer REGEXP '^[0-9+][0-9 -]{7,}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_danish_ci;
 
 -- Opret Værelser Tabel
@@ -99,7 +101,9 @@ CREATE TABLE `hotel_personale` (
     CONSTRAINT `fk_personale_hotel` FOREIGN KEY (`hotel_id`) 
         REFERENCES `hoteller` (`hotel_id`) 
         ON DELETE RESTRICT 
-        ON UPDATE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT chk_løn 
+    CHECK (løn >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_danish_ci;
 
 -- Opret Cykel Udlejning Tabel
@@ -273,3 +277,41 @@ Guest Status:
 - Inaktiv
 - VIP
 */
+
+-- Tilføj audit trail tabel
+CREATE TABLE audit_log (
+    audit_id INT AUTO_INCREMENT PRIMARY KEY,
+    tabel_navn VARCHAR(50),
+    operation ENUM('INSERT', 'UPDATE', 'DELETE'),
+    record_id INT,
+    ændret_af VARCHAR(100),
+    ændret_dato TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    gamle_værdier JSON,
+    nye_værdier JSON
+);
+
+-- Erstat den eksisterende trigger med denne version
+CREATE TRIGGER tr_audit_bookinger AFTER UPDATE ON bookinger
+FOR EACH ROW
+    INSERT INTO audit_log (
+        tabel_navn, 
+        operation, 
+        record_id, 
+        ændret_af, 
+        gamle_værdier, 
+        nye_værdier
+    )
+    VALUES (
+        'bookinger', 
+        'UPDATE',
+        NEW.booking_id,
+        CURRENT_USER(),
+        JSON_OBJECT(
+            'status', OLD.booking_status,
+            'total_pris', OLD.total_pris
+        ),
+        JSON_OBJECT(
+            'status', NEW.booking_status,
+            'total_pris', NEW.total_pris
+        )
+    );

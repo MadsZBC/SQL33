@@ -215,3 +215,19 @@ SELECT
     ROUND(AVG(daglig_omsætning), 2) as gns_daglig_omsætning
 FROM DagligOmsætning
 GROUP BY hotel_id, hotel_navn; 
+
+-- Tilføj indexes for ofte brugte views
+CREATE INDEX idx_booking_date_range ON bookinger (check_ind_dato, check_ud_dato, booking_status);
+CREATE INDEX idx_hotel_room_type ON værelser (hotel_id, værelse_type);
+
+-- Optimer v_hotel_månedlig_omsætning med materialized view
+CREATE TABLE mv_hotel_månedlig_omsætning (
+    hotel_id INT,
+    hotel_navn VARCHAR(100),
+    måned VARCHAR(7),
+    antal_bookinger INT,
+    total_omsætning DECIMAL(10,2),
+    gennemsnit_per_booking DECIMAL(10,2),
+    last_updated TIMESTAMP,
+    PRIMARY KEY (hotel_id, måned)
+); 
