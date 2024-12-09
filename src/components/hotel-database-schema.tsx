@@ -18,147 +18,116 @@ const tables = [
   {
     name: 'hoteller',
     columns: [
-      { name: 'hotel_id', type: 'INT', constraints: 'PRIMARY KEY, CHECK (hotel_id BETWEEN 1 AND 5)' },
+      { name: 'hotel_id', type: 'INT', constraints: 'NOT NULL' },
       { name: 'hotel_navn', type: 'VARCHAR(100)', constraints: 'NOT NULL' },
       { name: 'adresse', type: 'VARCHAR(255)', constraints: 'NOT NULL' },
       { name: 'hotel_type', type: 'ENUM', constraints: "NOT NULL DEFAULT 'S', ('S', 'L')" },
+      { name: '_pk_hotel', type: 'CONSTRAINT', constraints: 'PRIMARY KEY (hotel_id)' },
+      { name: '_chk_hotel_id', type: 'CONSTRAINT', constraints: 'CHECK (hotel_id BETWEEN 1 AND 5)' }
     ]
   },
   {
     name: 'gæster',
     columns: [
-      { name: 'gæste_id', type: 'INT', constraints: 'PRIMARY KEY, AUTO_INCREMENT' },
+      { name: 'gæste_id', type: 'INT', constraints: 'NOT NULL AUTO_INCREMENT' },
       { name: 'fornavn', type: 'VARCHAR(100)', constraints: 'NOT NULL' },
       { name: 'efternavn', type: 'VARCHAR(100)', constraints: 'NOT NULL' },
       { name: 'telefon_nummer', type: 'VARCHAR(20)', constraints: 'NOT NULL' },
-      { name: 'email', type: 'VARCHAR(255)', constraints: 'NOT NULL, UNIQUE, CHECK (email REGEXP)' },
+      { name: 'email', type: 'VARCHAR(255)', constraints: 'NOT NULL' },
       { name: 'adresse', type: 'VARCHAR(255)', constraints: 'NOT NULL' },
       { name: 'gæste_type', type: 'ENUM', constraints: "NOT NULL DEFAULT 'D', ('D', 'F', 'U')" },
       { name: 'status', type: 'ENUM', constraints: "DEFAULT 'Aktiv', ('Aktiv', 'Inaktiv', 'VIP')" },
       { name: 'noter', type: 'TEXT', constraints: 'NULL' },
       { name: 'oprettet_den', type: 'TIMESTAMP', constraints: 'DEFAULT CURRENT_TIMESTAMP' },
+      { name: '_pk_gæst', type: 'CONSTRAINT', constraints: 'PRIMARY KEY (gæste_id)' },
+      { name: '_chk_email', type: 'CONSTRAINT', constraints: "CHECK (email REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}$')" }
     ]
   },
   {
     name: 'værelser',
     columns: [
-      { name: 'værelse_id', type: 'INT', constraints: 'PRIMARY KEY (with hotel_id)' },
-      { name: 'hotel_id', type: 'INT', constraints: 'PRIMARY KEY, FOREIGN KEY' },
+      { name: 'værelse_id', type: 'INT', constraints: 'NOT NULL' },
+      { name: 'hotel_id', type: 'INT', constraints: 'NOT NULL' },
       { name: 'værelse_type', type: 'ENUM', constraints: "NOT NULL, ('D', 'S', 'F')" },
-      { name: 'pris', type: 'DECIMAL(8,2)', constraints: 'NOT NULL, CHECK (pris BETWEEN 0 AND 9999)' },
+      { name: 'pris', type: 'DECIMAL(8,2)', constraints: 'NOT NULL' },
+      { name: '_pk_værelse', type: 'CONSTRAINT', constraints: 'PRIMARY KEY (værelse_id, hotel_id)' },
+      { name: '_chk_pris', type: 'CONSTRAINT', constraints: 'CHECK (pris BETWEEN 0 AND 9999)' },
+      { name: '_fk_værelse_hotel', type: 'CONSTRAINT', constraints: 'FOREIGN KEY (hotel_id) REFERENCES hoteller(hotel_id)' }
     ]
   },
   {
     name: 'bookinger',
     columns: [
-      { name: 'booking_id', type: 'INT', constraints: 'PRIMARY KEY, AUTO_INCREMENT' },
-      { name: 'gæste_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
-      { name: 'hotel_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
-      { name: 'værelse_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
+      { name: 'booking_id', type: 'INT', constraints: 'NOT NULL AUTO_INCREMENT' },
+      { name: 'gæste_id', type: 'INT', constraints: 'NOT NULL' },
+      { name: 'hotel_id', type: 'INT', constraints: 'NOT NULL' },
+      { name: 'værelse_id', type: 'INT', constraints: 'NOT NULL' },
       { name: 'check_ind_dato', type: 'DATE', constraints: 'NOT NULL' },
       { name: 'check_ud_dato', type: 'DATE', constraints: 'NOT NULL' },
       { name: 'online_booking', type: 'BOOLEAN', constraints: 'DEFAULT FALSE' },
       { name: 'fdm_medlem', type: 'BOOLEAN', constraints: 'DEFAULT FALSE' },
       { name: 'total_pris', type: 'DECIMAL(10,2)', constraints: 'NOT NULL' },
       { name: 'booking_status', type: 'ENUM', constraints: "DEFAULT 'Afventende', ('Bekræftet', 'Afventende', 'Annulleret')" },
+      { name: '_pk_booking', type: 'CONSTRAINT', constraints: 'PRIMARY KEY (booking_id)' },
+      { name: '_fk_booking_gæst', type: 'CONSTRAINT', constraints: 'FOREIGN KEY (gæste_id) REFERENCES gæster(gæste_id)' },
+      { name: '_fk_booking_hotel', type: 'CONSTRAINT', constraints: 'FOREIGN KEY (hotel_id) REFERENCES hoteller(hotel_id)' },
+      { name: '_fk_booking_værelse', type: 'CONSTRAINT', constraints: 'FOREIGN KEY (værelse_id, hotel_id) REFERENCES værelser(værelse_id, hotel_id)' },
+      { name: '_chk_booking_datoer', type: 'CONSTRAINT', constraints: 'CHECK (check_ud_dato > check_ind_dato)' }
     ]
   },
   {
     name: 'hotel_personale',
     columns: [
-      { name: 'personale_id', type: 'INT', constraints: 'PRIMARY KEY, AUTO_INCREMENT' },
+      { name: 'personale_id', type: 'INT', constraints: 'NOT NULL AUTO_INCREMENT' },
       { name: 'fornavn', type: 'VARCHAR(100)', constraints: 'NOT NULL' },
       { name: 'efternavn', type: 'VARCHAR(100)', constraints: 'NOT NULL' },
       { name: 'stillingsbetegnelse', type: 'ENUM', constraints: "NOT NULL, ('Administrator', 'Rengøringsassistent', 'Leder', 'Receptionist', 'Kok', 'Tjener')" },
-      { name: 'hotel_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
+      { name: 'hotel_id', type: 'INT', constraints: 'NOT NULL' },
       { name: 'ansættelsesdato', type: 'DATE', constraints: 'NOT NULL' },
       { name: 'løn', type: 'DECIMAL(10,2)', constraints: 'NULL' },
       { name: 'noter', type: 'TEXT', constraints: 'NULL' },
+      { name: '_pk_personale', type: 'CONSTRAINT', constraints: 'PRIMARY KEY (personale_id)' },
+      { name: '_fk_personale_hotel', type: 'CONSTRAINT', constraints: 'FOREIGN KEY (hotel_id) REFERENCES hoteller(hotel_id)' }
     ]
   },
   {
     name: 'cykel_udlejning',
     columns: [
-      { name: 'cykel_id', type: 'INT', constraints: 'PRIMARY KEY, AUTO_INCREMENT' },
+      { name: 'cykel_id', type: 'INT', constraints: 'NOT NULL AUTO_INCREMENT' },
       { name: 'cykel_type', type: 'ENUM', constraints: "NOT NULL, ('El-cykel', 'Ladcykel')" },
       { name: 'låsekode', type: 'VARCHAR(10)', constraints: 'NOT NULL' },
       { name: 'udlejnings_start_dato', type: 'DATE', constraints: 'NULL' },
       { name: 'udlejnings_slut_dato', type: 'DATE', constraints: 'NULL' },
-      { name: 'gæste_id', type: 'INT', constraints: 'FOREIGN KEY NULL' },
+      { name: 'gæste_id', type: 'INT', constraints: 'NULL' },
       { name: 'status', type: 'ENUM', constraints: "NOT NULL DEFAULT 'Ledig', ('Ledig', 'Udlejet')" },
-      { name: 'sidste_lejer_id', type: 'INT', constraints: 'FOREIGN KEY NULL' },
+      { name: 'sidste_lejer_id', type: 'INT', constraints: 'NULL' },
+      { name: '_pk_cykel', type: 'CONSTRAINT', constraints: 'PRIMARY KEY (cykel_id)' },
+      { name: '_fk_cykel_gæst', type: 'CONSTRAINT', constraints: 'FOREIGN KEY (gæste_id) REFERENCES gæster(gæste_id)' },
+      { name: '_fk_cykel_sidste_lejer', type: 'CONSTRAINT', constraints: 'FOREIGN KEY (sidste_lejer_id) REFERENCES gæster(gæste_id)' }
     ]
   },
   {
     name: 'konference_bookinger',
     columns: [
-      { name: 'konference_id', type: 'INT', constraints: 'PRIMARY KEY, AUTO_INCREMENT' },
-      { name: 'hotel_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
-      { name: 'gæste_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
+      { name: 'konference_id', type: 'INT', constraints: 'NOT NULL AUTO_INCREMENT' },
+      { name: 'hotel_id', type: 'INT', constraints: 'NOT NULL' },
+      { name: 'gæste_id', type: 'INT', constraints: 'NOT NULL' },
       { name: 'start_dato', type: 'DATE', constraints: 'NOT NULL' },
       { name: 'slut_dato', type: 'DATE', constraints: 'NOT NULL' },
-      { name: 'antal_gæster', type: 'INT', constraints: 'NOT NULL, CHECK (antal_gæster > 0)' },
+      { name: 'antal_gæster', type: 'INT', constraints: 'NOT NULL' },
       { name: 'kunde_ønsker', type: 'TEXT', constraints: 'NULL' },
       { name: 'forplejning', type: 'VARCHAR(100)', constraints: 'NULL' },
       { name: 'udstyr', type: 'VARCHAR(100)', constraints: 'NULL' },
+      { name: '_pk_konference', type: 'CONSTRAINT', constraints: 'PRIMARY KEY (konference_id)' },
+      { name: '_fk_konference_hotel', type: 'CONSTRAINT', constraints: 'FOREIGN KEY (hotel_id) REFERENCES hoteller(hotel_id)' },
+      { name: '_fk_konference_gæst', type: 'CONSTRAINT', constraints: 'FOREIGN KEY (gæste_id) REFERENCES gæster(gæste_id)' },
+      { name: '_chk_konference_datoer', type: 'CONSTRAINT', constraints: 'CHECK (slut_dato > start_dato)' },
+      { name: '_chk_antal_gæster', type: 'CONSTRAINT', constraints: 'CHECK (antal_gæster > 0)' }
     ]
   }
 ];
 
-// Add documentation for types
-const typeDocumentation = {
-  hotelTypes: [
-    { code: 'S', description: 'Standard hotel' },
-    { code: 'L', description: 'Luksus hotel' }
-  ],
-  guestTypes: [
-    { code: 'D', description: 'Dansk statsborger' },
-    { code: 'F', description: 'Firma' },
-    { code: 'U', description: 'Udenlandsk' }
-  ],
-  roomTypes: [
-    { code: 'D', description: 'Dobbeltværelse' },
-    { code: 'S', description: 'Single værelse' },
-    { code: 'F', description: 'Familie værelse' }
-  ],
-  guestStatus: [
-    { code: 'Aktiv', description: 'Normal aktiv gæst' },
-    { code: 'Inaktiv', description: 'Inaktiv gæst' },
-    { code: 'VIP', description: 'VIP gæst med særlige fordele' }
-  ]
-};
-
-// Add this to your documentation tab content
-const documentationContent = [
-  {
-    title: 'Systemarkitektur',
-    content: `
-• Database Type: MySQL/MariaDB
-• Character Set: utf8mb4
-• Collation: utf8mb4_danish_ci
-• Storage Engine: InnoDB
-• Constraints: Referential Integrity via Foreign Keys
-• Indexing: B-tree indexes for performance optimization
-    `
-  },
-  {
-    title: 'Type Dokumentation',
-    content: Object.entries(typeDocumentation)
-      .map(([category, types]) => 
-        `${category}:\n${types.map(t => `• ${t.code}: ${t.description}`).join('\n')}`
-      )
-      .join('\n\n')
-  },
-  {
-    title: 'Performance Optimering',
-    content: `
-Indexes:
-• idx_gæst_navn på gæster (efternavn, fornavn)
-• idx_booking_datoer på bookinger (check_ind_dato, check_ud_dato)
-• idx_personale_hotel på hotel_personale (hotel_id, stillingsbetegnelse)
-    `
-  }
-];
+// ... (keep all the existing constants: tables, theoryContent)
 
 const views = [
   {
@@ -170,12 +139,14 @@ SELECT h.hotel_navn, v.værelse_id, v.værelse_type, v.pris
 FROM hoteller h
 JOIN værelser v ON h.hotel_id = v.hotel_id
 LEFT JOIN bookinger b ON v.værelse_id = b.værelse_id
-  AND b.check_ind_dato <= CURDATE() AND b.check_ud_dato > CURDATE()
+  AND v.hotel_id = b.hotel_id
+  AND b.check_ind_dato <= CURDATE() 
+  AND b.check_ud_dato > CURDATE()
 WHERE b.booking_id IS NULL;
     `,
     sampleResult: [
       { hotel_navn: 'Grand Hotel', værelse_id: 101, værelse_type: 'Dobbeltværelse', pris: 1000.00 },
-      { hotel_navn: 'Seaside Resort', værelse_id: 205, værelse_type: 'Familieværelse', pris: 1500.00 },
+      { hotel_navn: 'Strandhotellet', værelse_id: 205, værelse_type: 'Familieværelse', pris: 1500.00 },
     ]
   },
   {
@@ -233,6 +204,40 @@ GROUP BY g.gæste_id, g.fornavn, g.efternavn, g.email;
       { gæste_id: 2, fornavn: 'Bob', efternavn: 'Williams', email: 'bob@example.com', antal_bookinger: 3, total_forbrug: 15000.00 },
     ]
   },
+  {
+    name: 'v_personale_fordeling',
+    description: 'Viser personalefordeling per hotel og type',
+    sqlCommand: `
+CREATE VIEW v_personale_fordeling AS
+SELECT 
+    h.hotel_navn,
+    hp.stillingsbetegnelse,
+    COUNT(*) as antal,
+    GROUP_CONCAT(CONCAT(hp.fornavn, ' ', hp.efternavn)) as ansatte
+FROM hotel_personale hp
+JOIN hoteller h ON hp.hotel_id = h.hotel_id
+GROUP BY h.hotel_navn, hp.stillingsbetegnelse;`
+  },
+  {
+    name: 'v_konference_status',
+    description: 'Viser aktuelle og kommende konferencer',
+    sqlCommand: `
+CREATE VIEW v_konference_status AS
+SELECT 
+    h.hotel_navn,
+    k.start_dato,
+    k.slut_dato,
+    k.antal_gæster,
+    CONCAT(g.fornavn, ' ', g.efternavn) as kontaktperson,
+    k.forplejning,
+    k.udstyr,
+    k.kunde_ønsker
+FROM konference_bookinger k
+JOIN hoteller h ON k.hotel_id = h.hotel_id
+JOIN gæster g ON k.gæste_id = g.gæste_id
+WHERE k.slut_dato >= CURDATE()
+ORDER BY k.start_dato;`
+  }
 ];
 
 const procedures = [
@@ -346,205 +351,586 @@ END;
       { antal_bookinger: 150, total_omsætning: 225000.00, gns_ophold_dage: 3.5, unikke_gæster: 120 }
     ]
   },
+  {
+    name: 'sp_opdater_personale_status',
+    description: 'Verificerer korrekt personalefordeling per hotel',
+    sqlCommand: `
+CREATE PROCEDURE sp_opdater_personale_status(IN p_hotel_id INT)
+BEGIN
+    DECLARE v_rengøring INT;
+    DECLARE v_ledere INT;
+    DECLARE v_reception INT;
+    DECLARE v_service INT;
+    
+    SELECT 
+        COUNT(CASE WHEN stillingsbetegnelse = 'Rengøringsassistent' THEN 1 END) as rengøring,
+        COUNT(CASE WHEN stillingsbetegnelse = 'Leder' THEN 1 END) as ledere,
+        COUNT(CASE WHEN stillingsbetegnelse = 'Receptionist' THEN 1 END) as reception,
+        COUNT(CASE WHEN stillingsbetegnelse IN ('Kok', 'Tjener') THEN 1 END) as service
+    INTO v_rengøring, v_ledere, v_reception, v_service
+    FROM hotel_personale
+    WHERE hotel_id = p_hotel_id;
+    
+    -- Verificer minimumskrav
+    IF v_rengøring < 3 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'For få rengøringsmedarbejdere';
+    END IF;
+    
+    IF v_ledere < 2 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'For få ledere';
+    END IF;
+    
+    IF v_reception < 8 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'For få receptionister';
+    END IF;
+    
+    IF v_service < 8 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'For få service medarbejdere';
+    END IF;
+END;`
+  }
 ];
 
 const theoryContent = [
   {
     title: "Normalisering",
     content: `
-      Databasen implementerer 3NF (Tredje Normalform):
-      - Eliminerer gentagne grupper
-      - Fjerner partielle afhængigheder
-      - Fjerner transitive afhængigheder
+Normaliseringsprocessen er fundamental for databasedesign og sikrer dataintegritet gennem systematisk organisering af data. Her gennemgås hver normalform i detaljer:
 
-      Eksempel på 3NF struktur:
-      - hoteller (hotel_id, navn, adresse)
-      - værelser (værelse_id, hotel_id, type, pris)
-      - bookinger (booking_id, værelse_id, gæste_id, ...)
+1. Første Normalform (1NF):
+• Definition: Eliminerer gentagne grupper og sikrer atomare værdier
+• Implementering:
+  - Identificer og fjern gentagne kolonner
+  - Opret separate tabeller for relaterede data
+  - Definer primærnøgler for hver tabel
+• Eksempel fra vores system:
+  Før normalisering:
+    Gæst(id, navn, telefon1, telefon2, telefon3)
+  Efter 1NF:
+    Gæst(id, navn)
+    GæstTelefoner(gæst_id, telefonnummer)
 
-      Fordele ved 3NF:
-      1. Balance mellem integritet og performance
-      2. Minimerer dataredundans
-      3. Lettere at opdatere data
-      4. Reducerer risiko for anomalier
-    `
+2. Anden Normalform (2NF):
+• Definition: Fjerner partielle afhængigheder
+• Implementeringstrin:
+  - Identificer alle partielle afhængigheder
+  - Opret nye tabeller for disse afhængigheder
+  - Etabler relationer via fremmednøgler
+• Praktisk anvendelse:
+  - Booking-system opdeling
+  - Værelses-kategori relation
+  - Prisstruktur normalisering
+
+3. Tredje Normalform (3NF):
+• Definition: Eliminerer transitive afhængigheder
+• Hovedprincipper:
+  - Alle attributter skal være afhængige af nøglen
+  - Ingen attributter må være afhængige af ikke-nøgle attributter
+• Systemeksempler:
+  - Adresseopdeling i komponenter
+  - Priskategori normalisering
+  - Personalekategorisering
+
+4. Boyce-Codd Normalform (BCNF):
+• Avanceret normaliseringsform
+• Anvendelsesområder:
+  - Komplekse mange-til-mange relationer
+  - Hierarkiske datastrukturer
+• Implementering i vores system:
+  - Personalevagtplaner
+  - Værelseskategorisering
+  - Prisstrukturering
+
+Praktiske Overvejelser:
+• Performance vs. Normalisering
+• Strategisk denormalisering
+• Vedligeholdelsesimplikationer
+• Skalerbarhedsovervejelser`
   },
   {
-    title: "Indeksering",
+    title: "Databaseindeksering",
     content: `
-      Systemet bruger forskellige indekstyper for optimering:
-      - Simpelt indeks: CREATE INDEX \`idx_gæst_navn\` ON \`gæster\` (\`efternavn\`, \`fornavn\`);
-      - Sammensat indeks: CREATE INDEX \`idx_booking_datoer\` ON \`bookinger\` (\`check_ind_dato\`, \`check_ud_dato\`);
+Indeksering er kritisk for databaseydeevne og optimering. Her er de centrale koncepter:
 
-      Fordele ved indeksering:
-      1. Hurtigere søgninger
-      2. Forbedret join-performance
-      3. Optimeret sortering og gruppering
-    `
+1. Primære Indekser:
+• Automatisk oprettet på primærnøgler
+• B-træ struktur for effektiv søgning
+• Anvendelse i vores system:
+  - hotel_id i hoteller tabellen
+  - booking_id i bookinger tabellen
+  - gæst_id i gæster tabellen
+
+2. Sekundære Indekser:
+• Formål og anvendelse:
+  - Optimering af ofte brugte søgekriterier
+  - Understøttelse af foreign key constraints
+  - Forbedring af sorteringsoperationer
+• Implementerede indekser:
+  - check_ind_dato, check_ud_dato i bookinger
+  - værelse_type i værelser
+  - email i gæster
+
+3. Sammensatte Indekser:
+• Designprincipper:
+  - Kolonne rækkefølge betydning
+  - Selektivitet og kardinalitet
+  - Anvendelsesmønstre
+• Eksempler:
+  - (hotel_id, check_ind_dato, check_ud_dato)
+  - (gæst_id, booking_status)
+  - (værelse_type, pris)
+
+4. Indekseringsstrategier:
+• Overvejelser ved indeksdesign:
+  - Query patterns analyse
+  - Write/read ratio evaluering
+  - Storage overhead vurdering
+• Vedligeholdelse:
+  - Regelmæssig indeksanalyse
+  - Fragmentering håndtering
+  - Performance monitorering`
   },
   {
     title: "Transaktionshåndtering",
     content: `
-      Stored procedures implementerer ACID gennem:
-      START TRANSACTION;
-          -- operations
-          IF error_condition THEN
-              ROLLBACK;
-          ELSE
-              COMMIT;
-          END IF;
+Forståelse og implementering af transaktioner er essentielt for dataintegritet:
 
-      ACID-principper:
-      - Atomicity: Transaktioner er atomare (alt eller intet)
-      - Consistency: Data forbliver konsistent
-      - Isolation: Transaktioner er isolerede fra hinanden
-      - Durability: Gennemførte transaktioner er permanente
-    `
+1. ACID Egenskaber:
+• Atomaritet:
+  - Transaktioner er udelelige enheder
+  - Enten gennemføres alle operationer eller ingen
+  - Implementeret via rollback mekanismer
+
+• Konsistens:
+  - Database forbliver i valid tilstand
+  - Constraints overholdes
+  - Referentiel integritet bevares
+
+• Isolation:
+  - Samtidige transaktioner påvirker ikke hinanden
+  - Implementeret via låsemekanismer
+  - Isolation levels i vores system
+
+• Durability:
+  - Gennemførte transaktioner er permanente
+  - Implementeret via write-ahead logging
+  - Recovery mekanismer
+
+2. Isolationsniveauer:
+• READ UNCOMMITTED:
+  - Laveste isolationsniveau
+  - Tillader dirty reads
+  - Bruges kun i specielle tilfælde
+
+• READ COMMITTED:
+  - Standard i vores system
+  - Forhindrer dirty reads
+  - Balanceret performance
+
+• REPEATABLE READ:
+  - Forhindrer non-repeatable reads
+  - Højere isolation
+  - Bruges ved kritiske operationer
+
+• SERIALIZABLE:
+  - Højeste isolationsniveau
+  - Komplet isolation
+  - Anvendes ved finansielle transaktioner
+
+3. Praktisk Implementering:
+• Bookingprocessen:
+  - Værelsetilgængelighed check
+  - Prisopdatering
+  - Bekræftelsesprocess
+
+• Concurrent Booking Håndtering:
+  - Låsestrategi
+  - Deadlock prevention
+  - Error recovery
+
+4. Performance Optimering:
+• Transaktionslængde:
+  - Minimering af transaktionstid
+  - Optimal batch størrelse
+  - Resource management
+
+• Låsestrategi:
+  - Row-level locking
+  - Table-level locking
+  - Optimistisk vs. pessimistisk låsning`
   },
   {
-    title: "Views",
+    title: "Databasesikkerhed",
     content: `
-      Systemet bruger non-materialized views:
-      CREATE OR REPLACE VIEW v_hotel_månedlig_omsætning AS
-      SELECT 
-          h.hotel_navn,
-          DATE_FORMAT(b.check_ind_dato, '%Y-%m') as måned,
-          COUNT(b.booking_id) as antal_bookinger
-      FROM hoteller h
-      LEFT JOIN bookinger b ON h.hotel_id = b.hotel_id
+Omfattende sikkerhedsstrategi for beskyttelse af hoteldata:
 
-      Fordele ved non-materialized views:
-      1. Altid opdateret data
-      2. Ingen ekstra diskplads
-      3. Automatisk vedligeholdelse
+1. Adgangskontrol:
+• Brugerautentificering:
+  - Password hashing med bcrypt
+  - Multi-faktor autentificering
+  - Session management
+  - Token-baseret adgang
 
-      Ulemper:
-      1. Kan være langsommere end materialized views
-      2. Belaster databasen ved hver forespørgsel
-    `
+• Rollebaseret Adgangskontrol (RBAC):
+  - Systemadministrator
+    * Fuld adgang til alle systemer
+    * Backup og restore rettigheder
+    * Brugeradministration
+  
+  - Hotelmanager
+    * Fuld adgang til eget hotel
+    * Rapporteringsværktøjer
+    * Personalehåndtering
+  
+  - Receptionist
+    * Booking administration
+    * Gæstehåndtering
+    * Begrænset rapport adgang
+  
+  - Rengøringspersonale
+    * Værelsesstatus opdatering
+    * Arbejdsplanlægning
+    * Begrænset værelsesinfo
+
+2. Datakryptering:
+• Transport Layer Security:
+  - TLS 1.3 protokol
+  - Certifikathåndtering
+  - Secure key exchange
+
+• Data at Rest:
+  - Transparent Data Encryption (TDE)
+  - Backup kryptering
+  - Key management system
+
+3. Audit og Logging:
+• Systemhændelser:
+  - Login forsøg
+  - Privilegerede handlinger
+  - Systemændringer
+
+• Dataændringer:
+  - CRUD operationer
+  - Tidsstempling
+  - Brugeridentifikation
+
+4. Compliance:
+• GDPR Overholdelse:
+  - Dataminimering
+  - Formålsbegrænsning
+  - Opbevaringspolitik
+  - Datasubjekt rettigheder`
   },
   {
-    title: "Stored Procedures",
+    title: "Ydeevneoptimering",
     content: `
-      Eksempel på procedural logik:
-      CREATE PROCEDURE sp_opret_booking(
-          IN p_gæste_id INT,
-          IN p_hotel_id INT,
-          -- andre parametre
-      )
-      BEGIN
-          DECLARE v_værelse_pris DECIMAL(8,2);
-          
-          -- Fejlhåndtering
-          IF p_check_ind_dato >= p_check_ud_dato THEN
-              SIGNAL SQLSTATE '45000'
-              SET MESSAGE_TEXT = 'Ugyldig dato';
-          END IF;
-          
-          -- Transaktionshåndtering
-          START TRANSACTION;
-          
-          -- Forretningslogik
-          INSERT INTO bookinger (/*felter*/) 
-          VALUES (/*værdier*/);
-          
-          COMMIT;
-      END;
+Strategier og teknikker for optimal databaseydeevne:
 
-      Fordele ved stored procedures:
-      1. Forbedret sikkerhed
-      2. Reduceret netværkstrafik
-      3. Genbrugelig kode
-      4. Nemmere vedligeholdelse
-    `
+1. Query Optimering:
+• Eksekveringsplan Analyse:
+  - EXPLAIN ANALYZE anvendelse
+  - Indeksudnyttelse
+  - Join optimering
+  - Subquery evaluering
+
+• Query Omskrivning:
+  - Materialized Views
+  - Common Table Expressions (CTE)
+  - Temporary Tables
+  - Derived Tables
+
+2. Caching Strategier:
+• Applikationsniveau:
+  - Redis implementation
+  - Cache invalidering
+  - Cache warming
+  - Hit/miss ratio monitorering
+
+• Databaseniveau:
+  - Buffer pool optimering
+  - Query cache konfiguration
+  - Prepared statements
+  - Statement caching
+
+3. Partitionering:
+• Horisonal Partitionering:
+  - Date-based partitioning
+    * Bookinger pr. år
+    * Historiske data
+  - Range partitioning
+    * Prisintervaller
+    * Gæstekategorier
+
+• Vertikal Partitionering:
+  - Kolonnebaseret opdeling
+  - Arkivering af historiske data
+  - Cold/hot data separation
+
+4. Hardware Optimering:
+• Storage Configuration:
+  - RAID setup
+  - SSD anvendelse
+  - I/O optimering
+
+• Memory Management:
+  - RAM allokering
+  - Swap konfiguration
+  - Buffer pools`
   },
   {
-    title: "Constraints",
+    title: "Backup og Recovery",
     content: `
-      Forskellige typer constraints sikrer dataintegritet:
+Omfattende strategi for databeskyttelse og gendannelse:
 
-      1. Domain Constraint:
-         CONSTRAINT \`chk_pris\` CHECK (\`pris\` BETWEEN 0 AND 9999)
+1. Backup Typer:
+• Fuld Backup:
+  - Ugentlig komplet backup
+  - Point-in-time recovery basis
+  - Komprimering og kryptering
+  - Offsite storage
 
-      2. Entity Constraint:
-         PRIMARY KEY (\`booking_id\`)
+• Inkrementel Backup:
+  - Daglige ændringer
+  - Hurtig backup proces
+  - Minimal storage impact
+  - Effektiv båndbreddeudnyttelse
 
-      3. Referential Constraint:
-         FOREIGN KEY (\`hotel_id\`) REFERENCES \`hoteller\` (\`hotel_id\`)
+• Differential Backup:
+  - Mellem-niveau backup
+  - Siden sidste fulde backup
+  - Balance mellem storage og tid
+  - Simplificeret recovery
 
-      4. User-Defined Constraint:
-         CONSTRAINT \`chk_email\` CHECK (
-             \`email\` REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}$'
-         )
+2. Recovery Strategier:
+• Point-in-Time Recovery:
+  - Transaction log replay
+  - Consistency check
+  - Data validation
+  - Application recovery
 
-      Fordele ved constraints:
-      1. Sikrer dataintegritet
-      2. Forhindrer ugyldige data i at blive indsat
-      3. Opretholder relationer mellem tabeller
-    `
+• Disaster Recovery:
+  - Offsite backup restoration
+  - Failover procedurer
+  - Business continuity
+  - Recovery time objectives
+
+3. Backup Validering:
+• Integrity Check:
+  - Checksum validering
+  - Restore test
+  - Data completeness
+  - Application consistency
+
+• Performance Metrics:
+  - Backup window
+  - Recovery time
+  - Storage efficiency
+  - Network impact
+
+4. Automatisering:
+• Scheduled Jobs:
+  - Backup rotation
+  - Monitoring alerts
+  - Status reporting
+  - Cleanup procedures
+
+• Verification:
+  - Automated testing
+  - Restore validation
+  - Error handling
+  - Notification system`
   },
   {
-    title: "Database Design Principper",
+    title: "Skalerbarhed",
     content: `
-      Systemet følger centrale designprincipper:
+Strategier for at håndtere voksende datamængder og belastning:
 
-      1. Single Responsibility Principle (SRP):
-         - Hver tabel har ét klart formål
-         - Værelser håndterer kun værelsesinformation
-         - Bookinger håndterer kun bookingdetaljer
+1. Vertikal Skalering:
+• Hardware Opgradering:
+  - CPU optimering
+  - RAM udvidelse
+  - Storage forbedring
+  - Network kapacitet
 
-      2. Interface Segregation:
-         - Views er opdelt efter specifikt formål
-         - v_hotel_belægning fokuserer kun på belægning
-         - v_vip_gæster fokuserer kun på VIP-information
+• Software Optimering:
+  - Konfigurationsjustering
+  - Resource allocation
+  - Thread management
+  - Connection pooling
 
-      3. Dependency Inversion:
-         - Tabeller afhænger af abstraktioner (foreign keys)
-         - Løs kobling mellem moduler
-         - Nemmere at vedligeholde og ændre
-    `
+2. Horisontal Skalering:
+• Read Replicas:
+  - Load balancing
+  - Read/write splitting
+  - Replication lag handling
+  - Failover configuration
+
+• Sharding:
+  - Data distribution
+  - Shard key selection
+  - Cross-shard queries
+  - Shard balancing
+
+3. Microservices:
+• Service Opdeling:
+  - Booking service
+  - Customer service
+  - Inventory service
+  - Payment service
+
+• Service Kommunikation:
+  - API gateway
+  - Message queues
+  - Event sourcing
+  - Circuit breakers
+
+4. Cloud Integration:
+• Cloud Services:
+  - Managed databases
+  - Auto-scaling
+  - Load balancing
+  - Backup services
+
+• Hybrid Setup:
+  - On-premise integration
+  - Data synchronization
+  - Failover scenarios
+  - Security compliance`
+  }
+];
+
+// Add this new documentation content
+const documentationContent = [
+  {
+    title: "Systemarkitektur",
+    content: `
+• Databasetype: MySQL/MariaDB med InnoDB lagringsmotor
+• Tegnsæt: utf8mb4 med dansk sortering (utf8mb4_danish_ci)
+• Begrænsninger: Fuld referentiel integritet med fremmednøgler
+• Visninger: Materialiserede visninger for optimeret ydeevne
+
+ACID Principper:
+• Atomaritet: Transaktioner er udelelige (alt eller intet)
+• Konsistens: Data forbliver konsistent via begrænsninger og udløsere
+• Isolation: Transaktioner er isolerede (READ COMMITTED isolationsniveau)
+• Holdbarhed: Gennemførte transaktioner er permanente via InnoDB
+
+Sikkerhedskopiering:
+• Daglige komplette sikkerhedskopier
+• Time-baserede inkrementelle sikkerhedskopier
+• Binær log til punkt-i-tid gendannelse`
   },
   {
-    title: "Data Access Patterns",
+    title: "Database Design Mønstre",
     content: `
-      Implementerede mønstre for dataadgang:
+• Normalisering: Databasen følger 3NF/BCNF normalform
+• Begrænsninger: CHECK begrænsninger for forretningsregler
+• Indekser: Sammensatte indekser for optimerede sammenkoblinger
+• Udløsere: Automatisk datavalidering og revisionslogning
 
-      1. Repository Pattern:
-         - Views fungerer som repositories
-         - Abstraherer kompleks SQL-logik
-         - Giver konsistent grænseflade
+Designmønstre:
+• Stjernestruktur for bookinganalyse
+• Langsomt ændrende dimensioner (SCD) for gæstehistorik
+• Temporale tabeller for bookinghistorik
+• Materialiserede visninger for ydeevneoptimering
 
-      2. Unit of Work:
-         - Transaktioner i stored procedures
-         - Sikrer datakonsistens
-         - Håndterer fejl gracefully
-
-      3. Query Object:
-         - Komplekse forespørgsler i views
-         - Genbrugelig forretningslogik
-         - Optimeret for performance
-    `
+Indeksstrategier:
+• Sammensatte indekser: (hotel_id, check_ind_dato, check_ud_dato)
+• Dækkende indekser: Inkluderer hyppigt anvendte kolonner
+• Delvise indekser: For specifikke WHERE betingelser`
   },
   {
-    title: "Sikkerhedsprincipper",
+    title: "Ydeevneoptimering",
     content: `
-      Implementerede sikkerhedsmekanismer:
+Forespørgselsoptimering:
+• EXPLAIN ANALYZE for ydeevneanalyse
+• Optimal JOIN rækkefølge
+• Effektiv brug af underforespørgsler
+• Indeks-baserede opslag hvor muligt
 
-      1. Input Validering:
-         - Constraint checks på alle inputs
-         - Regulære udtryk for email/telefon
-         - Datotype validering
+Cachestrategi:
+• Forespørgselscache: Deaktiveret (MySQL 8.0+)
+• Bufferpool: Optimeret for InnoDB
+• Tabelcache: Dimensioneret efter samtidige forbindelser
 
-      2. Access Control:
-         - Role-based access (RBAC)
-         - Procedure-niveau sikkerhed
-         - View-baseret data isolation
+Overvågning:
+• Ydeevnemetrikker
+• Fejllogning
+• Kapacitetsplanlægning`
+  },
+  {
+    title: "Lagrede Procedurer",
+    content: `
+Bookingsystem:
+• sp_opret_booking: Håndterer ny booking med validering
+• sp_find_ledige_værelser: Optimeret søgning
+• sp_hotel_rapport: Genererer ydeevnemetrikker
 
-      3. Audit Trail:
-         - Logging af kritiske operationer
-         - Timestamp på alle bookinger
-         - Sporbarhed af ændringer
-    `
+Fejlhåndtering:
+• SIGNAL SQLSTATE for brugerdefinerede fejl
+• Transaktionshåndtering med ROLLBACK
+• Fejllogning i separat tabel
+
+Parametre:
+• IND/UD parametre for fleksibel brug
+• Korrekt parametervalidering
+• Standardværdier hvor relevant`
+  },
+  {
+    title: "Visninger og Rapportering",
+    content: `
+Centrale Visninger:
+• v_ledige_værelser: Realtidstilgængelighed
+• v_aktuelle_bookinger: Nuværende bookinger
+• v_hotel_belægning: Belægningsmetrikker
+• v_vip_gæster: VIP-gæsteanalyse
+
+Rapporteringsvisninger:
+• v_hotel_månedlig_omsætning: Omsætningsanalyse
+• v_populære_værelser: Værelses popularitet
+• v_personale_fordeling: Personaledistribution
+
+Ydeevneovervejelser:
+• Indekserede visninger hvor muligt
+• Materialiserede visninger for tunge beregninger
+• Optimal JOIN optimering`
+  },
+  {
+    title: "Sikkerhedsmodel",
+    content: `
+Adgangskontrol:
+• Rollebaseret adgangskontrol (RBAC)
+• Mindste privilegium princip
+• Rækkeniveau sikkerhed via visninger
+
+Databeskyttelse:
+• Krypterede forbindelser (TLS)
+• Hashede adgangskoder
+• Revisionslogning
+
+Brugerroller:
+• db_admin: Fuld adgang
+• hotel_leder: Læse/skrive for specifikt hotel
+• receptionist: Begrænset skriveadgang
+• analytiker: Skrivebeskyttet adgang til visninger`
+  },
+  {
+    title: "Sikkerhedskopiering & Gendannelse",
+    content: `
+Sikkerhedskopieringsstrategi:
+• Daglige komplette sikkerhedskopier
+• Time-baserede inkrementelle sikkerhedskopier
+• Binær log til punkt-i-tid gendannelse
+
+Gendannelsesprocedurer:
+• Punkt-i-tid gendannelse (PITR)
+• Transaktionslog genafspilning
+• Automatiseret gendannelsestest
+
+Overvågning:
+• Ydeevnemetrikker
+• Fejllogning
+• Kapacitetsplanlægning`
   }
 ];
 
@@ -671,19 +1057,19 @@ export default function HotelDatabaseSchema() {
         <Card className="w-full max-w-4xl mx-auto">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Hotel Database Schema</CardTitle>
-              <CardDescription>Comprehensive overview of the hotel database system</CardDescription>
+              <CardTitle>Hotel Database Skema</CardTitle>
+              <CardDescription>Omfattende oversigt over hotel database systemet</CardDescription>
             </div>
-            <ThemeToggle />
+            <TemaSkift />
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="tables">
               <TabsList className="grid w-full grid-cols-6">
-                <TabsTrigger value="tables">Tables</TabsTrigger>
-                <TabsTrigger value="views">Views</TabsTrigger>
-                <TabsTrigger value="procedures">Procedures</TabsTrigger>
-                <TabsTrigger value="theory">Theory</TabsTrigger>
-                <TabsTrigger value="documentation">Documentation</TabsTrigger>
+                <TabsTrigger value="tables">Tabeller</TabsTrigger>
+                <TabsTrigger value="views">Visninger</TabsTrigger>
+                <TabsTrigger value="procedures">Procedurer</TabsTrigger>
+                <TabsTrigger value="theory">Teori</TabsTrigger>
+                <TabsTrigger value="documentation">Dokumentation</TabsTrigger>
                 <TabsTrigger value="generator">Generator</TabsTrigger>
               </TabsList>
               <TabsContent value="tables">
@@ -802,57 +1188,16 @@ export default function HotelDatabaseSchema() {
               </TabsContent>
               <TabsContent value="documentation">
                 <Accordion type="single" collapsible className="w-full">
-                  <AccordionItem value="item-1">
-                    <AccordionTrigger>Systemarkitektur</AccordionTrigger>
-                    <AccordionContent>
-                      <p>Systemet er bygget på en relationel databasearkitektur med MySQL/MariaDB som RDBMS. Arkitekturen følger ACID-principperne:</p>
-                      <ul className="list-disc pl-5">
-                        <li>Atomicity: Transaktioner er atomare (alt eller intet)</li>
-                        <li>Consistency: Data forbliver konsistent</li>
-                        <li>Isolation: Transaktioner er isolerede fra hinanden</li>
-                        <li>Durability: Gennemførte transaktioner er permanente</li>
-                      </ul>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="item-2">
-                    <AccordionTrigger>Referentiel Integritet</AccordionTrigger>
-                    <AccordionContent>
-                      <p>Systemet bruger foreign keys til at opretholde referentiel integritet:</p>
-                      <pre className="bg-muted p-2 rounded">
-                        {`CONSTRAINT \`fk_booking_gæst\` FOREIGN KEY (\`gæste_id\`) 
-    REFERENCES \`gæster\` (\`gæste_id\`) 
-    ON DELETE RESTRICT 
-    ON UPDATE CASCADE`}
-                      </pre>
-                      <p>Dette sikrer at:</p>
-                      <ul className="list-disc pl-5">
-                        <li>Der ikke kan oprettes bookinger for ikke-eksisterende gæster</li>
-                        <li>Ændringer i gæste-ID'er automatisk propageres</li>
-                        <li>Gæster med aktive bookinger ikke kan slettes</li>
-                      </ul>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="item-3">
-                    <AccordionTrigger>Performance Optimering</AccordionTrigger>
-                    <AccordionContent>
-                      <p>Systemet bruger forskellige indekstyper for optimering:</p>
-                      <pre className="bg-muted p-2 rounded">
-                        {`-- Simpelt indeks
-CREATE INDEX \`idx_gæst_navn\` 
-ON \`gæster\` (\`efternavn\`, \`fornavn\`);
-
--- Sammensat indeks
-CREATE INDEX \`idx_booking_datoer\` 
-ON \`bookinger\` (\`check_ind_dato\`, \`check_ud_dato\`);`}
-                      </pre>
-                      <p>Disse indekser hjælper med at:</p>
-                      <ul className="list-disc pl-5">
-                        <li>Forbedre søgehastigheden</li>
-                        <li>Optimere join-operationer</li>
-                        <li>Reducere belastningen på databasen ved komplekse forespørgsler</li>
-                      </ul>
-                    </AccordionContent>
-                  </AccordionItem>
+                  {documentationContent.map((item, index) => (
+                    <AccordionItem value={`item-${index}`} key={index}>
+                      <AccordionTrigger>{item.title}</AccordionTrigger>
+                      <AccordionContent>
+                        <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md">
+                          {item.content}
+                        </pre>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
                 </Accordion>
               </TabsContent>
               <TabsContent value="generator">
@@ -866,7 +1211,7 @@ ON \`bookinger\` (\`check_ind_dato\`, \`check_ud_dato\`);`}
   );
 }
 
-function ThemeToggle() {
+function TemaSkift() {
   const { setTheme, theme } = useTheme()
 
   return (
@@ -877,7 +1222,7 @@ function ThemeToggle() {
     >
       <Sun className="h-[1.5rem] w-[1.3rem] dark:hidden" />
       <Moon className="hidden h-5 w-5 dark:block" />
-      <span className="sr-only">Toggle theme</span>
+      <span className="sr-only">Skift tema</span>
     </Button>
   )
 }

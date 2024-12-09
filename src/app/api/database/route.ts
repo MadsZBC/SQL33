@@ -14,6 +14,20 @@ const pool = mysql.createPool({
   keepAliveInitialDelay: 0
 })
 
+
+// Add custom error types
+interface DatabaseError extends Error {
+  code?: string;
+}
+
+// Define the correct type for the count query result
+type CountResult = {
+  total: number
+}
+
+// Add this type near the top of the file with other type definitions
+type StoredProcedureResult = [mysql.RowDataPacket[], mysql.RowDataPacket[]]
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const view = searchParams.get('view')
@@ -28,10 +42,10 @@ export async function GET(request: NextRequest) {
         [limit, offset]
       )
 
-      const [totalResult] = await pool.query(
+      const totalResult = await pool.query<mysql.RowDataPacket[]>(
         'SELECT COUNT(*) as total FROM v_bookinger'
       )
-      const total = totalResult[0].total
+      const total = (totalResult[0][0] as CountResult).total
 
       return NextResponse.json({
         result: {
@@ -69,7 +83,7 @@ export async function GET(request: NextRequest) {
           }
 
           const bookingQuery = `CALL sp_opret_booking(?, ?, ?, ?, ?, ?, ?)`
-          const [bookingRows] = await pool.query(bookingQuery, [
+          const [bookingRows] = await pool.query<StoredProcedureResult>(bookingQuery, [
             parseInt(gæsteId),
             parseInt(hotelId),
             parseInt(værelseId),
@@ -78,7 +92,7 @@ export async function GET(request: NextRequest) {
             onlineBooking,
             fdmMedlem
           ])
-          return Response.json({ result: bookingRows[0] })
+          return Response.json({ result: bookingRows[0][0] })
 
         case 'sp_find_ledige_værelser':
           const findHotelId = searchParams.get('hotel_id')
@@ -90,7 +104,7 @@ export async function GET(request: NextRequest) {
           }
 
           const findQuery = `CALL sp_find_ledige_værelser(?, ?, ?)`
-          const [findRows] = await pool.query(findQuery, [
+          const [findRows] = await pool.query<StoredProcedureResult>(findQuery, [
             parseInt(findHotelId),
             findCheckIndDato,
             findCheckUdDato
@@ -131,7 +145,7 @@ export async function GET(request: NextRequest) {
       { 
         error: 'Database connection error', 
         details: error instanceof Error ? error.message : 'Unknown error',
-        code: (error as any).code
+        code: (error as DatabaseError).code
       },
       { status: 500 }
     )

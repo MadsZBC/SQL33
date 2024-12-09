@@ -12,7 +12,28 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Info } from "lucide-react"
+
+interface SidebarData {
+  guests: Guest[];
+  hotels: Hotel[];
+  rooms: Room[];
+}
+
+interface Guest {
+  gæste_id: number;
+  fornavn: string;
+  efternavn: string;
+}
+
+interface Hotel {
+  hotel_id: number;
+  hotel_navn: string;
+}
+
+interface Room {
+  værelse_id: number;
+  hotel_id: number;
+}
 
 const procedures = {
   sp_opret_booking: 'Opret Booking',
@@ -44,10 +65,10 @@ export default function DatabaseGenerator() {
     ny_status: 'Bekræftet'
   })
   const [sqlCommand, setSqlCommand] = useState('')
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<Record<string, unknown>[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [sidebarData, setSidebarData] = useState({
+  const [sidebarData, setSidebarData] = useState<SidebarData>({
     guests: [],
     hotels: [],
     rooms: []
@@ -63,21 +84,21 @@ export default function DatabaseGenerator() {
     fdm_medlem: false
   })
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | boolean | Date) => {
     setBookingData(prev => ({
       ...prev,
       [field]: value
     }))
   }
 
-  const handleUpdateChange = (field: string, value: any) => {
+  const handleUpdateChange = (field: string, value: string | boolean | Date) => {
     setUpdateData(prev => ({
       ...prev,
       [field]: value
     }))
   }
 
-  const handleViewParamChange = (field: string, value: any) => {
+  const handleViewParamChange = (field: string, value: string | boolean | Date) => {
     setViewParams(prev => ({
       ...prev,
       [field]: value
@@ -247,7 +268,7 @@ CALL sp_rediger_booking(
 
               <TabsContent value="guests" className="max-h-[600px] overflow-y-auto pr-2">
                 <div className="space-y-2">
-                  {sidebarData.guests.slice(0, 10).map((guest: any) => (
+                  {sidebarData.guests.slice(0, 10).map((guest: Guest) => (
                     <div 
                       key={`guest-${guest.gæste_id}`} 
                       className="flex justify-between items-center"
@@ -277,7 +298,7 @@ CALL sp_rediger_booking(
 
               <TabsContent value="hotels" className="max-h-[600px] overflow-y-auto pr-2">
                 <div className="space-y-2">
-                  {sidebarData.hotels.slice(0, 10).map((hotel: any) => (
+                  {sidebarData.hotels.slice(0, 10).map((hotel: Hotel) => (
                     <div 
                       key={`hotel-${hotel.hotel_id}`} 
                       className="flex justify-between items-center"
@@ -307,7 +328,7 @@ CALL sp_rediger_booking(
 
               <TabsContent value="rooms" className="max-h-[600px] overflow-y-auto pr-2">
                 <div className="space-y-2">
-                  {sidebarData.rooms.slice(0, 10).map((room: any) => (
+                  {sidebarData.rooms.slice(0, 10).map((room: Room) => (
                     <div 
                       key={`room-${room.hotel_id}-${room.værelse_id}`} 
                       className="flex justify-between items-center"
@@ -411,7 +432,7 @@ CALL sp_rediger_booking(
                               <Calendar
                                 mode="single"
                                 selected={bookingData.check_ind_dato}
-                                onSelect={(date) => handleInputChange('check_ind_dato', date)}
+                                onSelect={(date) => handleInputChange('check_ind_dato', date || new Date())}
                               />
                             </PopoverContent>
                           </Popover>
@@ -430,7 +451,7 @@ CALL sp_rediger_booking(
                               <Calendar
                                 mode="single"
                                 selected={bookingData.check_ud_dato}
-                                onSelect={(date) => handleInputChange('check_ud_dato', date)}
+                                onSelect={(date) => handleInputChange('check_ud_dato', date || new Date())}
                               />
                             </PopoverContent>
                           </Popover>
@@ -526,7 +547,7 @@ CALL sp_rediger_booking(
                               <Calendar
                                 mode="single"
                                 selected={viewParams.start_dato}
-                                onSelect={(date) => handleViewParamChange('start_dato', date)}
+                                onSelect={(date) => handleViewParamChange('start_dato', date || new Date())}
                               />
                             </PopoverContent>
                           </Popover>
@@ -545,7 +566,7 @@ CALL sp_rediger_booking(
                               <Calendar
                                 mode="single"
                                 selected={viewParams.slut_dato}
-                                onSelect={(date) => handleViewParamChange('slut_dato', date)}
+                                onSelect={(date) => handleViewParamChange('slut_dato', date || new Date())}
                               />
                             </PopoverContent>
                           </Popover>
@@ -745,7 +766,7 @@ CALL sp_rediger_booking(
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="v_hotel_månedlig_omsætning">Hotel Månedlig Omsætning</SelectItem>
-                          <SelectItem value="v_populære_v��relser">Populære Værelser</SelectItem>
+                          <SelectItem value="v_populære_værelser">Populære Værelser</SelectItem>
                           <SelectItem value="v_cykel_statistik">Cykel Statistik</SelectItem>
                           <SelectItem value="v_konference_oversigt">Konference Oversigt</SelectItem>
                           <SelectItem value="v_hotel_personale_oversigt">Hotel Personale Oversigt</SelectItem>
@@ -812,11 +833,11 @@ CALL sp_rediger_booking(
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {result.map((row: any, i: number) => (
+                    {result.map((row: Record<string, unknown>, i: number) => (
                       <tr key={i} className="hover:bg-gray-50">
-                        {Object.values(row).map((value: any, j: number) => (
+                        {Object.values(row).map((value: unknown, j: number) => (
                           <td key={j} className="px-4 py-2 text-sm text-gray-500 whitespace-nowrap">
-                            {value?.toString() || ''}
+                            {String(value ?? '')}
                           </td>
                         ))}
                       </tr>
