@@ -1,0 +1,281 @@
+USE CBZHotels;
+
+-- Indsæt data i hoteller
+INSERT INTO hoteller (hotel_id, hotel_navn, adresse) VALUES
+(1, 'The Pope', 'Vatikangade 1, 1111 Bispeborg'),
+(2, 'Lucky Star', 'Bredgade 12, 2222 Hjemby'),
+(3, 'Discount', 'Billigvej 7, 3333 Lilleby'),
+(4, 'deLuxe', 'Kapital Avenue 99, 4444 Borgerslev'),
+(5, 'Discount', 'Billiggade 12, 6666 Roslev');
+
+-- Indsæt data i værelser (de specificerede værelser)
+INSERT INTO værelser (værelse_id, hotel_id, værelse_type, pris) VALUES
+-- The Pope
+(1, 1, 'D', 200),
+(2, 1, 'D', 200),
+(11, 1, 'S', 150),
+(21, 1, 'F', 220),
+-- Lucky Star
+(1, 2, 'D', 230),
+(2, 2, 'D', 230),
+(11, 2, 'S', 180),
+(21, 2, 'F', 300),
+-- Discount (Lilleby)
+(1, 3, 'D', 175),
+-- Discount (Roslev)
+(2, 5, 'D', 170);
+
+-- Indsæt data i hotel_personale (21 ansatte per hotel: 3 rengøring, 2 ledere, 8 reception, 8 køkken)
+INSERT INTO hotel_personale (hotel_id, fornavn, efternavn, stillingsbetegnelse, ansættelsesdato, løn)
+WITH RECURSIVE numbers AS (
+    SELECT 1 AS n UNION ALL SELECT n + 1 FROM numbers WHERE n < 106
+)
+SELECT 
+    FLOOR((n-1)/21) + 1 as hotel_id,
+    CASE (n % 10)
+        WHEN 0 THEN 'Jens'
+        WHEN 1 THEN 'Maria'
+        WHEN 2 THEN 'Henrik'
+        WHEN 3 THEN 'Louise'
+        WHEN 4 THEN 'Michael'
+        WHEN 5 THEN 'Anne'
+        WHEN 6 THEN 'Klaus'
+        WHEN 7 THEN 'Camilla'
+        WHEN 8 THEN 'Martin'
+        ELSE 'Lene'
+    END,
+    CASE (n % 8)
+        WHEN 0 THEN 'Møller'
+        WHEN 1 THEN 'Schmidt'
+        WHEN 2 THEN 'Poulsen'
+        WHEN 3 THEN 'Knudsen'
+        WHEN 4 THEN 'Mortensen'
+        WHEN 5 THEN 'Eriksen'
+        WHEN 6 THEN 'Winther'
+        ELSE 'Berg'
+    END,
+    CASE 
+        WHEN (n % 21) < 3 THEN 'Rengøringsassistent'  -- 3 stuepiger
+        WHEN (n % 21) < 5 THEN 'Leder'                -- 2 ledere
+        WHEN (n % 21) < 13 THEN 'Receptionist'        -- 8 reception
+        ELSE 'Kok'                                    -- 8 køkken
+    END,
+    DATE_SUB(CURRENT_DATE, INTERVAL (n % 1000) DAY),
+    CASE 
+        WHEN (n % 21) < 3 THEN 28000 + (RAND() * 3000)    -- Rengøring
+        WHEN (n % 21) < 5 THEN 45000 + (RAND() * 5000)    -- Ledere
+        WHEN (n % 21) < 13 THEN 32000 + (RAND() * 4000)   -- Reception
+        ELSE 35000 + (RAND() * 5000)                      -- Køkken
+    END
+FROM numbers
+WHERE FLOOR((n-1)/21) + 1 <= 5;
+
+-- Indsæt data i gæster (100+ rækker)
+INSERT INTO gæster (fornavn, efternavn, telefon_nummer, email, adresse, status) 
+WITH RECURSIVE numbers AS (
+    SELECT 1 AS n UNION ALL SELECT n + 1 FROM numbers WHERE n < 120
+)
+SELECT 
+    CASE (n % 20)
+        WHEN 0 THEN 'Anders'
+        WHEN 1 THEN 'Marie'
+        WHEN 2 THEN 'Peter'
+        WHEN 3 THEN 'Sofia'
+        WHEN 4 THEN 'Lars'
+        WHEN 5 THEN 'Emma'
+        WHEN 6 THEN 'Mikkel'
+        WHEN 7 THEN 'Anna'
+        WHEN 8 THEN 'Thomas'
+        WHEN 9 THEN 'Laura'
+        WHEN 10 THEN 'Christian'
+        WHEN 11 THEN 'Ida'
+        WHEN 12 THEN 'Frederik'
+        WHEN 13 THEN 'Clara'
+        WHEN 14 THEN 'Oliver'
+        WHEN 15 THEN 'Victoria'
+        WHEN 16 THEN 'William'
+        WHEN 17 THEN 'Emily'
+        WHEN 18 THEN 'Noah'
+        ELSE 'Sophia'
+    END,
+    CASE (n % 15)
+        WHEN 0 THEN 'Nielsen'
+        WHEN 1 THEN 'Jensen'
+        WHEN 2 THEN 'Hansen'
+        WHEN 3 THEN 'Pedersen'
+        WHEN 4 THEN 'Andersen'
+        WHEN 5 THEN 'Christensen'
+        WHEN 6 THEN 'Larsen'
+        WHEN 7 THEN 'Sørensen'
+        WHEN 8 THEN 'Rasmussen'
+        WHEN 9 THEN 'Jørgensen'
+        WHEN 10 THEN 'Petersen'
+        WHEN 11 THEN 'Madsen'
+        WHEN 12 THEN 'Kristensen'
+        WHEN 13 THEN 'Olsen'
+        ELSE 'Thomsen'
+    END,
+    CONCAT('+45 ', FLOOR(RAND() * (99999999 - 20000000) + 20000000)),
+    CONCAT(
+        LOWER(
+            CASE (n % 20)
+                WHEN 0 THEN 'anders'
+                WHEN 1 THEN 'marie'
+                -- ... (gentag fornavn cases)
+                ELSE 'sophia'
+            END
+        ),
+        n,
+        '@',
+        CASE (n % 5)
+            WHEN 0 THEN 'gmail.com'
+            WHEN 1 THEN 'hotmail.com'
+            WHEN 2 THEN 'yahoo.com'
+            WHEN 3 THEN 'outlook.com'
+            ELSE 'example.com'
+        END
+    ),
+    CONCAT(
+        'Gade ',
+        n,
+        ', ',
+        FLOOR(RAND() * 9000 + 1000),
+        ' ',
+        CASE (n % 10)
+            WHEN 0 THEN 'København'
+            WHEN 1 THEN 'Aarhus'
+            WHEN 2 THEN 'Odense'
+            WHEN 3 THEN 'Aalborg'
+            WHEN 4 THEN 'Esbjerg'
+            WHEN 5 THEN 'Randers'
+            WHEN 6 THEN 'Kolding'
+            WHEN 7 THEN 'Horsens'
+            WHEN 8 THEN 'Vejle'
+            ELSE 'Roskilde'
+        END
+    ),
+    CASE 
+        WHEN n % 10 = 0 THEN 'VIP'
+        WHEN n % 20 = 0 THEN 'Inaktiv'
+        ELSE 'Aktiv'
+    END
+FROM numbers;
+
+-- Indsæt data i bookinger (200+ rækker)
+INSERT INTO bookinger (gæste_id, hotel_id, værelse_id, check_ind_dato, check_ud_dato, online_booking, fdm_medlem, total_pris, booking_status)
+WITH RECURSIVE numbers AS (
+    SELECT 1 AS n UNION ALL SELECT n + 1 FROM numbers WHERE n < 220
+),
+valid_rooms AS (
+    SELECT værelse_id, hotel_id FROM værelser
+)
+SELECT 
+    (n % 120) + 1 as gæste_id,
+    v.hotel_id,
+    v.værelse_id,
+    DATE_ADD(CURRENT_DATE, INTERVAL (n % 60) - 30 DAY) as check_ind_dato,
+    DATE_ADD(CURRENT_DATE, INTERVAL (n % 60) - 28 DAY) as check_ud_dato,
+    n % 2 = 0 as online_booking,
+    n % 3 = 0 as fdm_medlem,
+    ROUND(1000 + (RAND() * 1000), 2) as total_pris,
+    CASE (n % 10)
+        WHEN 0 THEN 'Annulleret'
+        WHEN 1 THEN 'Afventende'
+        ELSE 'Bekræftet'
+    END
+FROM numbers
+JOIN valid_rooms v ON v.værelse_id = ((n % 150) + 1);
+
+-- Indsæt data i cykel_udlejning (100+ rækker)
+INSERT INTO cykel_udlejning (cykel_type, låsekode, udlejnings_start_dato, udlejnings_slut_dato, gæste_id, status, sidste_lejer_id)
+WITH RECURSIVE numbers AS (
+    SELECT 1 AS n UNION ALL SELECT n + 1 FROM numbers WHERE n < 120
+)
+SELECT 
+    CASE (n % 2)
+        WHEN 0 THEN 'El-cykel'
+        ELSE 'Ladcykel'
+    END,
+    CONCAT('KODE', LPAD(n, 4, '0')),
+    CASE (n % 4)
+        WHEN 0 THEN NULL
+        ELSE DATE_ADD(CURRENT_DATE, INTERVAL (n % 30) - 15 DAY)
+    END,
+    CASE (n % 4)
+        WHEN 0 THEN NULL
+        ELSE DATE_ADD(CURRENT_DATE, INTERVAL (n % 30) - 13 DAY)
+    END,
+    CASE (n % 4)
+        WHEN 0 THEN NULL
+        ELSE (n % 120) + 1
+    END,
+    CASE (n % 4)
+        WHEN 0 THEN 'Ledig'
+        ELSE 'Udlejet'
+    END,
+    CASE (n % 4)
+        WHEN 0 THEN NULL
+        ELSE ((n + 30) % 120) + 1
+    END
+FROM numbers;
+
+-- Indsæt data i konference_bookinger (100+ rækker)
+INSERT INTO konference_bookinger (hotel_id, gæste_id, start_dato, slut_dato, antal_gæster, kunde_ønsker, forplejning, udstyr)
+WITH RECURSIVE numbers AS (
+    SELECT 1 AS n UNION ALL SELECT n + 1 FROM numbers WHERE n < 120
+)
+SELECT 
+    (n % 5) + 1,
+    (n % 120) + 1,
+    DATE_ADD(CURRENT_DATE, INTERVAL (n % 90) DAY),
+    DATE_ADD(CURRENT_DATE, INTERVAL (n % 90) + 1 DAY),
+    20 + (n % 81),
+    CASE (n % 4)
+        WHEN 0 THEN 'Projektor og whiteboard ønskes'
+        WHEN 1 THEN 'Særlige forplejningsønsker'
+        WHEN 2 THEN 'Bordopstilling i U-form'
+        ELSE 'Standard opstilling'
+    END,
+    CASE (n % 3)
+        WHEN 0 THEN 'Fuld forplejning'
+        WHEN 1 THEN 'Morgenmad og frokost'
+        ELSE 'Kun kaffe/te service'
+    END,
+    CASE (n % 3)
+        WHEN 0 THEN 'Projektor, whiteboard, højtalere'
+        WHEN 1 THEN 'Basis AV-udstyr'
+        ELSE 'Ingen særlige ønsker'
+    END
+FROM numbers;
+
+-- Indsæt Pave Francis som VIP gæst
+INSERT INTO gæster (fornavn, efternavn, telefon_nummer, email, adresse, status) 
+VALUES (
+    'Francis',
+    'Pope',
+    '+39 06 6982',
+    'francis@vatican.va',
+    'Vatican City',
+    'VIP'
+);
+
+-- Indsæt eksempel på konference booking
+INSERT INTO konference_bookinger (
+    hotel_id,
+    gæste_id,
+    start_dato,
+    slut_dato,
+    antal_gæster,
+    kunde_ønsker,
+    forplejning,
+    udstyr
+) VALUES (
+    1, -- The Pope hotel
+    LAST_INSERT_ID(), -- Pave Francis ID
+    CURRENT_DATE,
+    DATE_ADD(CURRENT_DATE, INTERVAL 3 DAY),
+    50,
+    'Særlige sikkerhedskrav og privat indgang ønskes',
+    'Fuld forplejning med specielle diætkrav',
+    'Projektor, lydanlæg, simultantolkning'
+); 

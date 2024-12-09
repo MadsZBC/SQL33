@@ -3,7 +3,7 @@
 
 "use client"
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -18,9 +18,10 @@ const tables = [
   {
     name: 'hoteller',
     columns: [
-      { name: 'hotel_id', type: 'INT', constraints: 'PRIMARY KEY' },
+      { name: 'hotel_id', type: 'INT', constraints: 'PRIMARY KEY, CHECK (hotel_id BETWEEN 1 AND 5)' },
       { name: 'hotel_navn', type: 'VARCHAR(100)', constraints: 'NOT NULL' },
       { name: 'adresse', type: 'VARCHAR(255)', constraints: 'NOT NULL' },
+      { name: 'hotel_type', type: 'ENUM', constraints: "NOT NULL DEFAULT 'S', ('S', 'L')" },
     ]
   },
   {
@@ -30,36 +31,134 @@ const tables = [
       { name: 'fornavn', type: 'VARCHAR(100)', constraints: 'NOT NULL' },
       { name: 'efternavn', type: 'VARCHAR(100)', constraints: 'NOT NULL' },
       { name: 'telefon_nummer', type: 'VARCHAR(20)', constraints: 'NOT NULL' },
-      { name: 'email', type: 'VARCHAR(255)', constraints: 'NOT NULL, UNIQUE' },
+      { name: 'email', type: 'VARCHAR(255)', constraints: 'NOT NULL, UNIQUE, CHECK (email REGEXP)' },
       { name: 'adresse', type: 'VARCHAR(255)', constraints: 'NOT NULL' },
-      { name: 'status', type: 'ENUM', constraints: "('Aktiv', 'Inaktiv', 'VIP')" },
+      { name: 'gæste_type', type: 'ENUM', constraints: "NOT NULL DEFAULT 'D', ('D', 'F', 'U')" },
+      { name: 'status', type: 'ENUM', constraints: "DEFAULT 'Aktiv', ('Aktiv', 'Inaktiv', 'VIP')" },
+      { name: 'noter', type: 'TEXT', constraints: 'NULL' },
+      { name: 'oprettet_den', type: 'TIMESTAMP', constraints: 'DEFAULT CURRENT_TIMESTAMP' },
     ]
   },
   {
     name: 'værelser',
     columns: [
-      { name: 'værelse_id', type: 'INT', constraints: 'PRIMARY KEY' },
+      { name: 'værelse_id', type: 'INT', constraints: 'PRIMARY KEY (with hotel_id)' },
       { name: 'hotel_id', type: 'INT', constraints: 'PRIMARY KEY, FOREIGN KEY' },
-      { name: 'værelse_type', type: 'ENUM', constraints: "('Dobbeltværelse', 'Familieværelse', 'Enkeltværelse')" },
-      { name: 'pris', type: 'DECIMAL(8,2)', constraints: 'NOT NULL' },
+      { name: 'værelse_type', type: 'ENUM', constraints: "NOT NULL, ('D', 'S', 'F')" },
+      { name: 'pris', type: 'DECIMAL(8,2)', constraints: 'NOT NULL, CHECK (pris BETWEEN 0 AND 9999)' },
     ]
   },
   {
     name: 'bookinger',
     columns: [
       { name: 'booking_id', type: 'INT', constraints: 'PRIMARY KEY, AUTO_INCREMENT' },
-      { name: 'gæste_id', type: 'INT', constraints: 'FOREIGN KEY' },
-      { name: 'hotel_id', type: 'INT', constraints: 'FOREIGN KEY' },
-      { name: 'værelse_id', type: 'INT', constraints: 'FOREIGN KEY' },
+      { name: 'gæste_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
+      { name: 'hotel_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
+      { name: 'værelse_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
       { name: 'check_ind_dato', type: 'DATE', constraints: 'NOT NULL' },
       { name: 'check_ud_dato', type: 'DATE', constraints: 'NOT NULL' },
+      { name: 'online_booking', type: 'BOOLEAN', constraints: 'DEFAULT FALSE' },
+      { name: 'fdm_medlem', type: 'BOOLEAN', constraints: 'DEFAULT FALSE' },
       { name: 'total_pris', type: 'DECIMAL(10,2)', constraints: 'NOT NULL' },
-      { name: 'booking_status', type: 'ENUM', constraints: "('Bekræftet', 'Afventende', 'Annulleret')" },
+      { name: 'booking_status', type: 'ENUM', constraints: "DEFAULT 'Afventende', ('Bekræftet', 'Afventende', 'Annulleret')" },
     ]
   },
+  {
+    name: 'hotel_personale',
+    columns: [
+      { name: 'personale_id', type: 'INT', constraints: 'PRIMARY KEY, AUTO_INCREMENT' },
+      { name: 'fornavn', type: 'VARCHAR(100)', constraints: 'NOT NULL' },
+      { name: 'efternavn', type: 'VARCHAR(100)', constraints: 'NOT NULL' },
+      { name: 'stillingsbetegnelse', type: 'ENUM', constraints: "NOT NULL, ('Administrator', 'Rengøringsassistent', 'Leder', 'Receptionist', 'Kok', 'Tjener')" },
+      { name: 'hotel_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
+      { name: 'ansættelsesdato', type: 'DATE', constraints: 'NOT NULL' },
+      { name: 'løn', type: 'DECIMAL(10,2)', constraints: 'NULL' },
+      { name: 'noter', type: 'TEXT', constraints: 'NULL' },
+    ]
+  },
+  {
+    name: 'cykel_udlejning',
+    columns: [
+      { name: 'cykel_id', type: 'INT', constraints: 'PRIMARY KEY, AUTO_INCREMENT' },
+      { name: 'cykel_type', type: 'ENUM', constraints: "NOT NULL, ('El-cykel', 'Ladcykel')" },
+      { name: 'låsekode', type: 'VARCHAR(10)', constraints: 'NOT NULL' },
+      { name: 'udlejnings_start_dato', type: 'DATE', constraints: 'NULL' },
+      { name: 'udlejnings_slut_dato', type: 'DATE', constraints: 'NULL' },
+      { name: 'gæste_id', type: 'INT', constraints: 'FOREIGN KEY NULL' },
+      { name: 'status', type: 'ENUM', constraints: "NOT NULL DEFAULT 'Ledig', ('Ledig', 'Udlejet')" },
+      { name: 'sidste_lejer_id', type: 'INT', constraints: 'FOREIGN KEY NULL' },
+    ]
+  },
+  {
+    name: 'konference_bookinger',
+    columns: [
+      { name: 'konference_id', type: 'INT', constraints: 'PRIMARY KEY, AUTO_INCREMENT' },
+      { name: 'hotel_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
+      { name: 'gæste_id', type: 'INT', constraints: 'FOREIGN KEY NOT NULL' },
+      { name: 'start_dato', type: 'DATE', constraints: 'NOT NULL' },
+      { name: 'slut_dato', type: 'DATE', constraints: 'NOT NULL' },
+      { name: 'antal_gæster', type: 'INT', constraints: 'NOT NULL, CHECK (antal_gæster > 0)' },
+      { name: 'kunde_ønsker', type: 'TEXT', constraints: 'NULL' },
+      { name: 'forplejning', type: 'VARCHAR(100)', constraints: 'NULL' },
+      { name: 'udstyr', type: 'VARCHAR(100)', constraints: 'NULL' },
+    ]
+  }
 ];
 
-// ... (keep all the existing constants: tables, theoryContent)
+// Add documentation for types
+const typeDocumentation = {
+  hotelTypes: [
+    { code: 'S', description: 'Standard hotel' },
+    { code: 'L', description: 'Luksus hotel' }
+  ],
+  guestTypes: [
+    { code: 'D', description: 'Dansk statsborger' },
+    { code: 'F', description: 'Firma' },
+    { code: 'U', description: 'Udenlandsk' }
+  ],
+  roomTypes: [
+    { code: 'D', description: 'Dobbeltværelse' },
+    { code: 'S', description: 'Single værelse' },
+    { code: 'F', description: 'Familie værelse' }
+  ],
+  guestStatus: [
+    { code: 'Aktiv', description: 'Normal aktiv gæst' },
+    { code: 'Inaktiv', description: 'Inaktiv gæst' },
+    { code: 'VIP', description: 'VIP gæst med særlige fordele' }
+  ]
+};
+
+// Add this to your documentation tab content
+const documentationContent = [
+  {
+    title: 'Systemarkitektur',
+    content: `
+• Database Type: MySQL/MariaDB
+• Character Set: utf8mb4
+• Collation: utf8mb4_danish_ci
+• Storage Engine: InnoDB
+• Constraints: Referential Integrity via Foreign Keys
+• Indexing: B-tree indexes for performance optimization
+    `
+  },
+  {
+    title: 'Type Dokumentation',
+    content: Object.entries(typeDocumentation)
+      .map(([category, types]) => 
+        `${category}:\n${types.map(t => `• ${t.code}: ${t.description}`).join('\n')}`
+      )
+      .join('\n\n')
+  },
+  {
+    title: 'Performance Optimering',
+    content: `
+Indexes:
+• idx_gæst_navn på gæster (efternavn, fornavn)
+• idx_booking_datoer på bookinger (check_ind_dato, check_ud_dato)
+• idx_personale_hotel på hotel_personale (hotel_id, stillingsbetegnelse)
+    `
+  }
+];
 
 const views = [
   {
@@ -449,7 +548,123 @@ const theoryContent = [
   }
 ];
 
+function generateSQLCommand(viewOrProcedure: any, params: Record<string, any>) {
+  let sqlCommand = viewOrProcedure.sqlCommand;
+
+  // Debug: Log parameters
+  console.log("Parameters:", params);
+
+  // Replace parameters in SQL command
+  Object.entries(params).forEach(([key, value]) => {
+    const paramValue = typeof value === 'boolean' 
+      ? (value ? '1' : '0') 
+      : typeof value === 'string' 
+        ? `'${value}'` 
+        : value;
+    
+    sqlCommand = sqlCommand.replace(new RegExp(`@${key}\\b`, 'g'), paramValue);
+  });
+
+  // Debug: Log generated SQL command
+  console.log("Generated SQL Command:", sqlCommand);
+
+  return sqlCommand;
+}
+
+// Add this interface for type safety
+interface SQLParams {
+  [key: string]: string | number | boolean;
+}
+
+// Add this component for parameter inputs
+function SQLParameterInputs({ 
+  parameters, 
+  onParameterChange,
+  onUpdate
+}: { 
+  parameters: SQLParams, 
+  onParameterChange: (newParams: SQLParams) => void,
+  onUpdate?: () => void
+}) {
+  const handleChange = (newParams: SQLParams) => {
+    onParameterChange(newParams);
+    onUpdate?.();
+  };
+
+  return (
+    <div className="grid grid-cols-2 gap-2 mb-4">
+      {Object.entries(parameters).map(([key, value]) => (
+        <div key={key} className="flex flex-col">
+          <label className="text-sm font-medium">{key}</label>
+          {typeof value === 'boolean' ? (
+            <input
+              type="checkbox"
+              checked={!!value}
+              onChange={(e) => handleChange({ ...parameters, [key]: e.target.checked })}
+              className="h-4 w-4"
+            />
+          ) : typeof value === 'number' ? (
+            <input
+              type="number"
+              value={value}
+              onChange={(e) => handleChange({ ...parameters, [key]: Number(e.target.value) })}
+              className="border rounded px-2 py-1"
+            />
+          ) : key.includes('dato') ? (
+            <input
+              type="date"
+              value={value as string}
+              onChange={(e) => handleChange({ ...parameters, [key]: e.target.value })}
+              className="border rounded px-2 py-1"
+            />
+          ) : (
+            <input
+              type="text"
+              value={value as string}
+              onChange={(e) => handleChange({ ...parameters, [key]: e.target.value })}
+              className="border rounded px-2 py-1"
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function HotelDatabaseSchema() {
+  const [viewParams, setViewParams] = useState<SQLParams>({
+    CURDATE: new Date().toISOString().split('T')[0]
+  });
+
+  const [procedureParams, setProcedureParams] = useState<SQLParams>({
+    gæste_id: 1,
+    hotel_id: 2,
+    værelse_id: 101,
+    check_ind_dato: new Date().toISOString().split('T')[0],
+    check_ud_dato: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+    online_booking: true,
+    fdm_medlem: false
+  });
+
+  const [generatedSQL, setGeneratedSQL] = useState('');
+
+  // Remove the useEffect and make handleGenerate more explicit
+  const handleGenerate = () => {
+    console.log("Generate button clicked"); // Debug log
+    const procedure = procedures.find(p => p.name === 'sp_opret_booking');
+    console.log("Found procedure:", procedure); // Log if procedure is found
+    
+    if (procedure) {
+      try {
+        const sql = generateSQLCommand(procedure, procedureParams);
+        console.log("Generated SQL:", sql); // Debug log
+        setGeneratedSQL(sql);
+      } catch (error) {
+        console.error("Error generating SQL:", error);
+      }
+    }
+  };
+
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <div className="min-h-screen bg-background text-foreground">
@@ -506,6 +721,8 @@ export default function HotelDatabaseSchema() {
                     <TableRow>
                       <TableHead>View Name</TableHead>
                       <TableHead>Description</TableHead>
+                      <TableHead>Parameters</TableHead>
+                      <TableHead>SQL Command</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -513,6 +730,18 @@ export default function HotelDatabaseSchema() {
                       <TableRow key={view.name}>
                         <TableCell>{view.name}</TableCell>
                         <TableCell>{view.description}</TableCell>
+                        <TableCell>
+                          <SQLParameterInputs 
+                            parameters={viewParams} 
+                            onParameterChange={setViewParams} 
+                            onUpdate={handleGenerate}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <pre className="whitespace-pre-wrap overflow-x-auto">
+                            {generateSQLCommand(view, viewParams)}
+                          </pre>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -524,6 +753,8 @@ export default function HotelDatabaseSchema() {
                     <TableRow>
                       <TableHead>Procedure Name</TableHead>
                       <TableHead>Description</TableHead>
+                      <TableHead>Parameters</TableHead>
+                      <TableHead>SQL Command</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -531,6 +762,27 @@ export default function HotelDatabaseSchema() {
                       <TableRow key={procedure.name}>
                         <TableCell>{procedure.name}</TableCell>
                         <TableCell>{procedure.description}</TableCell>
+                        <TableCell>
+                          <SQLParameterInputs 
+                            parameters={procedureParams} 
+                            onParameterChange={setProcedureParams}
+                          />
+                          <Button 
+                            type="button"
+                            onClick={() => {
+                              console.log("Button clicked"); // Debug log
+                              handleGenerate();
+                            }}
+                            className="mt-2"
+                          >
+                            Generate SQL
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <pre className="whitespace-pre-wrap overflow-x-auto">
+                            {procedure.name === 'sp_opret_booking' ? generatedSQL : ''}
+                          </pre>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

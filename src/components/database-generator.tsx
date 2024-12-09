@@ -1,569 +1,834 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Info } from "lucide-react"
 
-// Sample data based on the actual SQL files
-const VIEWS = [
-  {
-    name: 'v_hotel_månedlig_omsætning',
-    description: 'Viser omsætning per hotel per måned',
-    sqlCommand: `SELECT 
-    h.hotel_navn,
-    DATE_FORMAT(b.check_ind_dato, '%Y-%m') as måned,
-    COUNT(b.booking_id) as antal_bookinger,
-    SUM(b.total_pris) as total_omsætning,
-    ROUND(AVG(b.total_pris), 2) as gennemsnit_per_booking
-FROM hoteller h
-LEFT JOIN bookinger b ON h.hotel_id = b.hotel_id
-WHERE b.booking_status = 'Bekræftet'
-GROUP BY h.hotel_id, h.hotel_navn, måned`,
-    sampleResult: [
-      {
-        hotel_navn: 'The Pope',
-        måned: '2024-03',
-        antal_bookinger: 15,
-        total_omsætning: 25000.00,
-        gennemsnit_per_booking: 1666.67
-      },
-      {
-        hotel_navn: 'Lucky Star',
-        måned: '2024-03',
-        antal_bookinger: 12,
-        total_omsætning: 22000.00,
-        gennemsnit_per_booking: 1833.33
-      },
-      {
-        hotel_navn: 'Discount',
-        måned: '2024-03',
-        antal_bookinger: 10,
-        total_omsætning: 15000.00,
-        gennemsnit_per_booking: 1500.00
-      },
-      {
-        hotel_navn: 'deLuxe',
-        måned: '2024-03',
-        antal_bookinger: 8,
-        total_omsætning: 18000.00,
-        gennemsnit_per_booking: 2250.00
-      }
-    ]
-  },
-  {
-    name: 'v_populære_værelser',
-    description: 'Viser statistik over populære værelsestyper',
-    sqlCommand: `SELECT 
-    h.hotel_navn,
-    v.værelse_type,
-    COUNT(b.booking_id) as antal_bookinger,
-    ROUND(AVG(b.total_pris), 2) as gennemsnits_pris,
-    ROUND(COUNT(b.booking_id) * 100.0 / SUM(COUNT(b.booking_id)) OVER (PARTITION BY h.hotel_id), 2) as booking_procent
-FROM værelser v
-JOIN hoteller h ON v.hotel_id = h.hotel_id
-LEFT JOIN bookinger b ON v.værelse_id = b.værelse_id
-WHERE b.booking_status = 'Bekræftet'
-GROUP BY h.hotel_id, h.hotel_navn, v.værelse_type`,
-    sampleResult: [
-      {
-        hotel_navn: 'The Pope',
-        værelse_type: 'D',
-        antal_bookinger: 25,
-        gennemsnits_pris: 200.00,
-        booking_procent: 45.5
-      },
-      {
-        hotel_navn: 'Lucky Star',
-        værelse_type: 'S',
-        antal_bookinger: 15,
-        gennemsnits_pris: 180.00,
-        booking_procent: 30.0
-      },
-      {
-        hotel_navn: 'Discount',
-        værelse_type: 'F',
-        antal_bookinger: 10,
-        gennemsnits_pris: 175.00,
-        booking_procent: 20.0
-      }
-    ]
-  },
-  {
-    name: 'v_cykel_statistik',
-    description: 'Viser statistik over cykeludlejning',
-    sqlCommand: `SELECT 
-    cykel_type,
-    COUNT(*) as antal_cykler,
-    SUM(CASE WHEN status = 'Udlejet' THEN 1 ELSE 0 END) as antal_udlejede,
-    SUM(CASE WHEN status = 'Ledig' THEN 1 ELSE 0 END) as antal_ledige,
-    ROUND(AVG(DATEDIFF(udlejnings_slut_dato, udlejnings_start_dato)), 1) as gns_udlejnings_dage
-FROM cykel_udlejning
-GROUP BY cykel_type`,
-    sampleResult: [
-      {
-        cykel_type: 'El-cykel',
-        antal_cykler: 60,
-        antal_udlejede: 45,
-        antal_ledige: 15,
-        gns_udlejnings_dage: 2.5
-      },
-      {
-        cykel_type: 'Ladcykel',
-        antal_cykler: 60,
-        antal_udlejede: 40,
-        antal_ledige: 20,
-        gns_udlejnings_dage: 3.0
-      }
-    ]
-  },
-  {
-    name: 'v_konference_oversigt',
-    description: 'Viser oversigt over konferencebookinger',
-    sqlCommand: `SELECT 
-    h.hotel_navn,
-    k.konference_id,
-    CONCAT(g.fornavn, ' ', g.efternavn) as gæst_navn,
-    k.start_dato,
-    k.slut_dato,
-    k.antal_gæster,
-    k.forplejning,
-    k.udstyr,
-    k.kunde_ønsker
-FROM konference_bookinger k
-JOIN hoteller h ON k.hotel_id = h.hotel_id
-JOIN gæster g ON k.gæste_id = g.gæste_id`,
-    sampleResult: [
-      {
-        hotel_navn: 'The Pope',
-        konference_id: 1,
-        gæst_navn: 'Francis Pope',
-        start_dato: '2024-03-15',
-        slut_dato: '2024-03-16',
-        antal_gæster: 50,
-        forplejning: 'Fuld forplejning',
-        udstyr: 'Projektor, whiteboard, højtalere',
-        kunde_ønsker: 'Særlige forplejningsønsker'
-      },
-      {
-        hotel_navn: 'Lucky Star',
-        konference_id: 2,
-        gæst_navn: 'Marie Jensen',
-        start_dato: '2024-04-10',
-        slut_dato: '2024-04-12',
-        antal_gæster: 30,
-        forplejning: 'Morgenmad og frokost',
-        udstyr: 'Basis AV-udstyr',
-        kunde_ønsker: 'Standard opstilling'
-      }
-    ]
-  },
-  {
-    name: 'v_hotel_personale_oversigt',
-    description: 'Viser oversigt over hotelpersonale',
-    sqlCommand: `SELECT 
-    h.hotel_navn,
-    hp.stillingsbetegnelse,
-    COUNT(*) as antal_ansatte,
-    ROUND(AVG(hp.løn), 2) as gennemsnitsløn,
-    MIN(hp.ansættelsesdato) as længst_ansættelse
-FROM hotel_personale hp
-JOIN hoteller h ON hp.hotel_id = h.hotel_id
-GROUP BY h.hotel_navn, hp.stillingsbetegnelse`,
-    sampleResult: [
-      {
-        hotel_navn: 'The Pope',
-        stillingsbetegnelse: 'Rengøringsassistent',
-        antal_ansatte: 3,
-        gennemsnitsløn: 29500.00,
-        længst_ansættelse: '2023-01-15'
-      },
-      {
-        hotel_navn: 'Lucky Star',
-        stillingsbetegnelse: 'Receptionist',
-        antal_ansatte: 8,
-        gennemsnitsløn: 34000.00,
-        længst_ansættelse: '2023-02-01'
-      },
-      {
-        hotel_navn: 'Discount',
-        stillingsbetegnelse: 'Kok',
-        antal_ansatte: 8,
-        gennemsnitsløn: 36000.00,
-        længst_ansættelse: '2023-03-01'
-      }
-    ]
-  }
-]
-
-const PROCEDURES = [
-  {
-    name: 'sp_opret_booking',
-    description: 'Opretter en ny booking med automatisk prisberegning',
-    sqlCommand: `CALL sp_opret_booking(
-  @gæste_id,
-  @hotel_id,
-  @værelse_id,
-  @check_ind_dato,
-  @check_ud_dato,
-  @online_booking,
-  @fdm_medlem
-)`,
-    parameters: ['gæste_id', 'hotel_id', 'værelse_id', 'check_ind_dato', 'check_ud_dato', 'online_booking', 'fdm_medlem'],
-    sampleResult: [
-      {
-        booking_id: 1,
-        total_pris: 400.00
-      }
-    ]
-  },
-  {
-    name: 'sp_find_ledige_værelser',
-    description: 'Finder ledige værelser i en given periode',
-    sqlCommand: `CALL sp_find_ledige_værelser(
-  @hotel_id,
-  @check_ind_dato,
-  @check_ud_dato
-)`,
-    parameters: ['hotel_id', 'check_ind_dato', 'check_ud_dato'],
-    sampleResult: [
-      {
-        værelse_id: 1,
-        værelse_type: 'Dobbeltværelse',
-        pris: 200.00,
-        hotel_navn: 'The Pope'
-      }
-    ]
-  }
-]
-
-// Define a type for the sample result
-type SampleResult = Record<string, string | number | boolean | Date>;
-
-interface DatabaseItem {
-  name: string;
-  description: string;
-  sqlCommand: string;
-  parameters?: string[];
-  sampleResult: SampleResult[];
-}
-
-interface DatabaseTheory {
-  title: string;
-  description: string;
-  principles: string[];
-  examples: string[];
-}
-
-const DATABASE_THEORY: DatabaseTheory[] = [
-  {
-    title: "Query Optimization",
-    description: "Principper for optimering af database forespørgsler",
-    principles: [
-      "Brug af indekser for hurtigere søgning",
-      "Minimering af table scans",
-      "Optimering af JOIN operationer"
-    ],
-    examples: [
-      "Composite indexes på ofte brugte søgefelter",
-      "EXPLAIN ANALYZE for query performance",
-      "Proper JOIN type selection (INNER vs LEFT)"
-    ]
-  },
-  {
-    title: "Data Integrity",
-    description: "Sikring af datakvalitet og konsistens",
-    principles: [
-      "Constraint-based integrity",
-      "Transaktionel integritet",
-      "Referentiel integritet"
-    ],
-    examples: [
-      "CHECK constraints på prisfelter",
-      "FOREIGN KEY constraints mellem tabeller",
-      "UNIQUE constraints på booking numre"
-    ]
-  },
-  {
-    title: "Performance Patterns",
-    description: "Mønstre for optimal database performance",
-    principles: [
-      "Caching strategies",
-      "Connection pooling",
-      "Query result caching"
-    ],
-    examples: [
-      "Materialized views for statiske data",
-      "Prepared statements for gentagne queries",
-      "Batch processing for store datasæt"
-    ]
-  }
-];
-
-function TheorySection() {
-  return (
-    <div className="space-y-6">
-      {DATABASE_THEORY.map((theory) => (
-        <Card key={theory.title}>
-          <CardHeader>
-            <CardTitle>{theory.title}</CardTitle>
-            <CardDescription>{theory.description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-medium">Principper:</h4>
-                <ul className="list-disc pl-5">
-                  {theory.principles.map((principle) => (
-                    <li key={principle}>{principle}</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-medium">Eksempler:</h4>
-                <ul className="list-disc pl-5">
-                  {theory.examples.map((example) => (
-                    <li key={example}>{example}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
+const procedures = {
+  sp_opret_booking: 'Opret Booking',
+  sp_opdater_booking_status: 'Opdater Booking Status',
+  sp_find_ledige_værelser: 'Find Ledige Værelser',
+  sp_rediger_booking: 'Rediger Booking'
+} as const
 
 export default function DatabaseGenerator() {
-  const [selectedType, setSelectedType] = useState<'view' | 'procedure'>('view')
-  const [selectedItem, setSelectedItem] = useState<DatabaseItem | null>(null)
-  const [params, setParams] = useState<Record<string, string | boolean | Date>>({})
-  const [result, setResult] = useState<SampleResult[] | null>(null)
+  const [activeTab, setActiveTab] = useState('procedures')
+  const [selectedView, setSelectedView] = useState('v_hotel_månedlig_omsætning')
+  const [selectedProcedure, setSelectedProcedure] = useState('sp_opret_booking')
+  const [viewParams, setViewParams] = useState({
+    hotel_id: '',
+    start_dato: new Date(),
+    slut_dato: new Date()
+  })
+  const [bookingData, setBookingData] = useState({
+    gæste_id: '',
+    hotel_id: '',
+    værelse_id: '',
+    check_ind_dato: new Date(),
+    check_ud_dato: new Date(),
+    online_booking: false,
+    fdm_medlem: false
+  })
+  const [updateData, setUpdateData] = useState({
+    booking_id: '',
+    ny_status: 'Bekræftet'
+  })
+  const [sqlCommand, setSqlCommand] = useState('')
+  const [result, setResult] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [sidebarData, setSidebarData] = useState({
+    guests: [],
+    hotels: [],
+    rooms: []
+  });
+  const [editBookingData, setEditBookingData] = useState({
+    booking_id: '',
+    gæste_id: '',
+    hotel_id: '',
+    værelse_id: '',
+    check_ind_dato: new Date(),
+    check_ud_dato: new Date(),
+    online_booking: false,
+    fdm_medlem: false
+  })
 
-  const handleGenerate = () => {
-    if (!selectedItem) return
+  const handleInputChange = (field: string, value: any) => {
+    setBookingData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
 
-    // Generate dynamic result based on parameters
-    let generatedResult = [...selectedItem.sampleResult]
+  const handleUpdateChange = (field: string, value: any) => {
+    setUpdateData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
 
-    if (selectedItem.name === 'sp_opret_booking') {
-      const checkInDate = params.check_ind_dato as Date
-      const checkOutDate = params.check_ud_dato as Date
-      const days = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24))
-      const basePrice = 200 // Base price per night
-      const total = days * basePrice
+  const handleViewParamChange = (field: string, value: any) => {
+    setViewParams(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
 
-      generatedResult = [{
-        booking_id: Math.floor(Math.random() * 1000) + 1,
-        total_pris: total.toFixed(2),
-        check_ind_dato: format(checkInDate, 'yyyy-MM-dd'),
-        check_ud_dato: format(checkOutDate, 'yyyy-MM-dd'),
-        antal_dage: days
-      }]
+  const generateSQL = () => {
+    if (activeTab === 'procedures') {
+      let sql = ''
+      if (selectedProcedure === 'sp_opret_booking') {
+        sql = `
+CALL sp_opret_booking(
+  ${parseInt(bookingData.gæste_id) || 0},
+  ${parseInt(bookingData.hotel_id) || 0},
+  ${parseInt(bookingData.værelse_id) || 0},
+  '${format(bookingData.check_ind_dato, 'yyyy-MM-dd')}',
+  '${format(bookingData.check_ud_dato, 'yyyy-MM-dd')}',
+  ${bookingData.online_booking ? 1 : 0},
+  ${bookingData.fdm_medlem ? 1 : 0}
+);`
+      } else if (selectedProcedure === 'sp_opdater_booking_status') {
+        sql = `
+CALL sp_opdater_booking_status(
+  ${parseInt(updateData.booking_id) || 0},
+  '${updateData.ny_status}'
+);`
+      } else if (selectedProcedure === 'sp_find_ledige_værelser') {
+        sql = `
+CALL sp_find_ledige_værelser(
+  ${parseInt(viewParams.hotel_id) || 0},
+  '${format(viewParams.start_dato, 'yyyy-MM-dd')}',
+  '${format(viewParams.slut_dato, 'yyyy-MM-dd')}'
+);`
+      } else if (selectedProcedure === 'sp_rediger_booking') {
+        sql = `
+CALL sp_rediger_booking(
+  ${parseInt(editBookingData.booking_id) || 0},
+  ${parseInt(editBookingData.gæste_id) || 0},
+  ${parseInt(editBookingData.hotel_id) || 0},
+  ${parseInt(editBookingData.værelse_id) || 0},
+  '${format(editBookingData.check_ind_dato, 'yyyy-MM-dd')}',
+  '${format(editBookingData.check_ud_dato, 'yyyy-MM-dd')}',
+  ${editBookingData.online_booking ? 1 : 0},
+  ${editBookingData.fdm_medlem ? 1 : 0}
+);`
+      }
+      setSqlCommand(sql)
+    } else if (activeTab === 'views') {
+      let sql = ''
+      const hotelFilter = viewParams.hotel_id ? 
+        `WHERE hotel_id = ${parseInt(viewParams.hotel_id)}` : ''
+      
+      switch (selectedView) {
+        case 'v_hotel_månedlig_omsætning':
+          sql = `SELECT * FROM v_hotel_månedlig_omsætning ${hotelFilter};`
+          break
+        case 'v_populære_værelser':
+          sql = `SELECT * FROM v_populære_værelser ${hotelFilter};`
+          break
+        case 'v_cykel_statistik':
+          sql = `SELECT * FROM v_cykel_statistik;`
+          break
+        case 'v_konference_oversigt':
+          sql = `SELECT * FROM v_konference_oversigt ${hotelFilter};`
+          break
+        case 'v_hotel_personale_oversigt':
+          sql = `SELECT * FROM v_hotel_personale_oversigt ${hotelFilter};`
+          break
+      }
+      setSqlCommand(sql)
     }
-
-    setResult(generatedResult)
   }
 
-  const renderParamInputs = () => {
-    if (!selectedItem?.parameters) return null
+  const fetchData = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      let url = '/api/database'
+      
+      if (activeTab === 'procedures') {
+        const params = new URLSearchParams()
+        params.append('procedure', selectedProcedure)
+        
+        switch (selectedProcedure) {
+          case 'sp_opret_booking':
+            params.append('gæste_id', bookingData.gæste_id)
+            params.append('hotel_id', bookingData.hotel_id)
+            params.append('værelse_id', bookingData.værelse_id)
+            params.append('check_ind_dato', format(bookingData.check_ind_dato, 'yyyy-MM-dd'))
+            params.append('check_ud_dato', format(bookingData.check_ud_dato, 'yyyy-MM-dd'))
+            params.append('online_booking', bookingData.online_booking.toString())
+            params.append('fdm_medlem', bookingData.fdm_medlem.toString())
+            break
+            
+          case 'sp_find_ledige_værelser':
+            params.append('hotel_id', viewParams.hotel_id)
+            params.append('check_ind_dato', format(viewParams.start_dato, 'yyyy-MM-dd'))
+            params.append('check_ud_dato', format(viewParams.slut_dato, 'yyyy-MM-dd'))
+            break
+        }
+        
+        url = `${url}?${params.toString()}`
+      } else {
+        url = `/api/database?view=${selectedView}`
+        if (viewParams.hotel_id) {
+          url += `&hotel_id=${viewParams.hotel_id}`
+        }
+      }
 
-    return (
-      <div className="space-y-4 mt-4">
-        {selectedItem.parameters.map((param) => {
-          // Handle date parameters
-          if (param.includes('dato')) {
-            return (
-              <div key={param} className="flex flex-col space-y-2">
-                <Label>{param}</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-[240px] justify-start text-left font-normal",
-                        !params[param] && "text-muted-foreground"
-                      )}
+      const response = await fetch(url)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch data')
+      }
+
+      if (data.result) {
+        setResult(Array.isArray(data.result) ? data.result : [data.result])
+      } else {
+        setResult([])
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchSidebarData = async () => {
+    try {
+      const [guestsRes, hotelsRes, roomsRes] = await Promise.all([
+        fetch('/api/database?view=v_gæster'),
+        fetch('/api/database?view=v_hoteller'),
+        fetch('/api/database?view=v_værelser')
+      ]);
+      
+      const guests = await guestsRes.json();
+      const hotels = await hotelsRes.json();
+      const rooms = await roomsRes.json();
+      
+      setSidebarData({
+        guests: guests.result || [],
+        hotels: hotels.result || [],
+        rooms: rooms.result || []
+      });
+    } catch (error) {
+      console.error('Error fetching sidebar data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSidebarData();
+  }, []);
+
+  return (
+    <div className="space-y-4">
+      <div className="border rounded-lg p-6">
+        <div className="flex gap-4">
+          <div className="w-72">
+            <h3 className="font-medium mb-4">Reference IDs</h3>
+            <Tabs defaultValue="guests" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="guests">Gæster</TabsTrigger>
+                <TabsTrigger value="hotels">Hoteller</TabsTrigger>
+                <TabsTrigger value="rooms">Værelser</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="guests" className="max-h-[600px] overflow-y-auto pr-2">
+                <div className="space-y-2">
+                  {sidebarData.guests.slice(0, 10).map((guest: any) => (
+                    <div 
+                      key={`guest-${guest.gæste_id}`} 
+                      className="flex justify-between items-center"
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {params[param] ? format(params[param] as Date, 'PPP') : "Vælg dato"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={params[param] as Date}
-                      onSelect={(date) => {
-                        if (date) {
-                          setParams({ ...params, [param]: date })
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )
-          }
+                      <div>
+                        <div className="text-sm">
+                          <span className="text-blue-500">ID: {guest.gæste_id}</span>
+                        </div>
+                        <div className="text-sm text-gray-200">
+                          {`${guest.fornavn} ${guest.efternavn}`}
+                        </div>
+                      </div>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <span className="text-green-500">Aktiv</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Gæst Status: Aktiv</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
 
-          // Handle boolean parameters
-          if (param === 'online_booking' || param === 'fdm_medlem') {
-            return (
-              <div key={param} className="flex flex-col space-y-2">
-                <Label>{param}</Label>
-                <Select
-                  onValueChange={(value) => setParams({ ...params, [param]: value === 'true' })}
-                  value={params[param]?.toString()}
-                >
-                  <SelectTrigger className="w-[240px]">
-                    <SelectValue placeholder={`Vælg ${param}`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">Ja</SelectItem>
-                    <SelectItem value="false">Nej</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )
-          }
+              <TabsContent value="hotels" className="max-h-[600px] overflow-y-auto pr-2">
+                <div className="space-y-2">
+                  {sidebarData.hotels.slice(0, 10).map((hotel: any) => (
+                    <div 
+                      key={`hotel-${hotel.hotel_id}`} 
+                      className="flex justify-between items-center"
+                    >
+                      <div>
+                        <div className="text-sm">
+                          <span className="text-blue-500">ID: {hotel.hotel_id}</span>
+                        </div>
+                        <div className="text-sm text-gray-200">
+                          {hotel.hotel_navn}
+                        </div>
+                      </div>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <span className="text-gray-500">S</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Hotel Status: Standard</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
 
-          // Default input for other parameters
-          return (
-            <div key={param} className="grid w-full max-w-sm items-center gap-1.5">
-              <Label htmlFor={param}>{param}</Label>
-              <Input
-                type={param.includes('pris') ? 'number' : 'text'}
-                id={param}
-                value={params[param]?.toString() || ''}
-                onChange={(e) => setParams({ ...params, [param]: e.target.value })}
-              />
+              <TabsContent value="rooms" className="max-h-[600px] overflow-y-auto pr-2">
+                <div className="space-y-2">
+                  {sidebarData.rooms.slice(0, 10).map((room: any) => (
+                    <div 
+                      key={`room-${room.hotel_id}-${room.værelse_id}`} 
+                      className="flex justify-between items-center"
+                    >
+                      <div>
+                        <div className="text-sm">
+                          <span className="text-blue-500">ID: {room.værelse_id}</span>
+                        </div>
+                        <div className="text-sm text-gray-200">
+                          {`Hotel ID: ${room.hotel_id}`}
+                        </div>
+                      </div>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <span className="text-blue-500">D</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Værelse Type: Dobbelt</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          <div className="flex-1">
+            <div className="space-y-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList>
+                  <TabsTrigger value="procedures">Procedures</TabsTrigger>
+                  <TabsTrigger value="views">Views</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="procedures">
+                  <div className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label>Procedure</Label>
+                      <Select 
+                        value={selectedProcedure} 
+                        onValueChange={setSelectedProcedure}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Vælg procedure" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(procedures).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {selectedProcedure === 'sp_opret_booking' && (
+                      <>
+                        <div className="grid gap-2">
+                          <Label htmlFor="gæste_id">Gæste ID</Label>
+                          <Input 
+                            id="gæste_id"
+                            value={bookingData.gæste_id}
+                            onChange={(e) => handleInputChange('gæste_id', e.target.value)}
+                            placeholder="1"
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="hotel_id">Hotel ID</Label>
+                          <Input 
+                            id="hotel_id"
+                            value={bookingData.hotel_id}
+                            onChange={(e) => handleInputChange('hotel_id', e.target.value)}
+                            placeholder="2"
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="værelse_id">Værelse ID</Label>
+                          <Input 
+                            id="værelse_id"
+                            value={bookingData.værelse_id}
+                            onChange={(e) => handleInputChange('værelse_id', e.target.value)}
+                            placeholder="101"
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Check-ind Dato</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className={cn("justify-start text-left font-normal")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {format(bookingData.check_ind_dato, 'PPP')}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={bookingData.check_ind_dato}
+                                onSelect={(date) => handleInputChange('check_ind_dato', date)}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Check-ud Dato</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className={cn("justify-start text-left font-normal")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {format(bookingData.check_ud_dato, 'PPP')}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={bookingData.check_ud_dato}
+                                onSelect={(date) => handleInputChange('check_ud_dato', date)}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Online Booking</Label>
+                          <Select 
+                            value={bookingData.online_booking.toString()} 
+                            onValueChange={(value) => handleInputChange('online_booking', value === 'true')}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Vælg ja/nej" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">Ja</SelectItem>
+                              <SelectItem value="false">Nej</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>FDM Medlem</Label>
+                          <Select 
+                            value={bookingData.fdm_medlem.toString()}
+                            onValueChange={(value) => handleInputChange('fdm_medlem', value === 'true')}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Vælg ja/nej" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">Ja</SelectItem>
+                              <SelectItem value="false">Nej</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    )}
+
+                    {selectedProcedure === 'sp_opdater_booking_status' && (
+                      <>
+                        <div className="grid gap-2">
+                          <Label htmlFor="booking_id">Booking ID</Label>
+                          <Input 
+                            id="booking_id"
+                            value={updateData.booking_id}
+                            onChange={(e) => handleUpdateChange('booking_id', e.target.value)}
+                            placeholder="1"
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Ny Status</Label>
+                          <Select 
+                            value={updateData.ny_status}
+                            onValueChange={(value) => handleUpdateChange('ny_status', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Vælg status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Bekræftet">Bekræftet</SelectItem>
+                              <SelectItem value="Afventende">Afventende</SelectItem>
+                              <SelectItem value="Annulleret">Annulleret</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    )}
+
+                    {selectedProcedure === 'sp_find_ledige_værelser' && (
+                      <>
+                        <div className="grid gap-2">
+                          <Label htmlFor="hotel_id">Hotel ID</Label>
+                          <Input 
+                            id="hotel_id"
+                            value={viewParams.hotel_id}
+                            onChange={(e) => handleViewParamChange('hotel_id', e.target.value)}
+                            placeholder="1"
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Start Dato</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className={cn("justify-start text-left font-normal")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {format(viewParams.start_dato, 'PPP')}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={viewParams.start_dato}
+                                onSelect={(date) => handleViewParamChange('start_dato', date)}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Slut Dato</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className={cn("justify-start text-left font-normal")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {format(viewParams.slut_dato, 'PPP')}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={viewParams.slut_dato}
+                                onSelect={(date) => handleViewParamChange('slut_dato', date)}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </>
+                    )}
+
+                    {selectedProcedure === 'sp_rediger_booking' && (
+                      <>
+                        <div className="grid gap-2">
+                          <Label htmlFor="booking_id">Booking ID</Label>
+                          <div className="flex gap-2">
+                            <Input 
+                              id="booking_id"
+                              value={editBookingData.booking_id}
+                              onChange={(e) => setEditBookingData(prev => ({
+                                ...prev,
+                                booking_id: e.target.value
+                              }))}
+                              placeholder="1"
+                            />
+                            <Button 
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/database?view=v_bookinger&booking_id=${editBookingData.booking_id}`);
+                                  const data = await response.json();
+                                  if (data.result?.[0]) {
+                                    const booking = data.result[0];
+                                    setEditBookingData({
+                                      ...editBookingData,
+                                      gæste_id: booking.gæste_id.toString(),
+                                      hotel_id: booking.hotel_id.toString(),
+                                      værelse_id: booking.værelse_id.toString(),
+                                      check_ind_dato: new Date(booking.check_ind_dato),
+                                      check_ud_dato: new Date(booking.check_ud_dato),
+                                      online_booking: booking.online_booking === 1,
+                                      fdm_medlem: booking.fdm_medlem === 1
+                                    });
+                                  }
+                                } catch (error) {
+                                  console.error('Error fetching booking:', error);
+                                }
+                              }}
+                            >
+                              Hent Booking
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="gæste_id">Gæste ID</Label>
+                          <Input 
+                            id="gæste_id"
+                            value={editBookingData.gæste_id}
+                            onChange={(e) => setEditBookingData(prev => ({
+                              ...prev,
+                              gæste_id: e.target.value
+                            }))}
+                            placeholder="1"
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="hotel_id">Hotel ID</Label>
+                          <Input 
+                            id="hotel_id"
+                            value={editBookingData.hotel_id}
+                            onChange={(e) => setEditBookingData(prev => ({
+                              ...prev,
+                              hotel_id: e.target.value
+                            }))}
+                            placeholder="1"
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="værelse_id">Værelse ID</Label>
+                          <Input 
+                            id="værelse_id"
+                            value={editBookingData.værelse_id}
+                            onChange={(e) => setEditBookingData(prev => ({
+                              ...prev,
+                              værelse_id: e.target.value
+                            }))}
+                            placeholder="101"
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Check-ind Dato</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className={cn("justify-start text-left font-normal")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {format(editBookingData.check_ind_dato, 'PPP')}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={editBookingData.check_ind_dato}
+                                onSelect={(date) => setEditBookingData(prev => ({
+                                  ...prev,
+                                  check_ind_dato: date || new Date()
+                                }))}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Check-ud Dato</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className={cn("justify-start text-left font-normal")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {format(editBookingData.check_ud_dato, 'PPP')}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={editBookingData.check_ud_dato}
+                                onSelect={(date) => setEditBookingData(prev => ({
+                                  ...prev,
+                                  check_ud_dato: date || new Date()
+                                }))}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Online Booking</Label>
+                          <Select 
+                            value={editBookingData.online_booking.toString()}
+                            onValueChange={(value) => setEditBookingData(prev => ({
+                              ...prev,
+                              online_booking: value === 'true'
+                            }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Vælg ja/nej" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">Ja</SelectItem>
+                              <SelectItem value="false">Nej</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>FDM Medlem</Label>
+                          <Select 
+                            value={editBookingData.fdm_medlem.toString()}
+                            onValueChange={(value) => setEditBookingData(prev => ({
+                              ...prev,
+                              fdm_medlem: value === 'true'
+                            }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Vælg ja/nej" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">Ja</SelectItem>
+                              <SelectItem value="false">Nej</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Add more input fields for other procedures here */}
+                  </div>
+
+                  {activeTab === 'procedures' && (
+                    <div className="flex gap-2">
+                      <Button onClick={generateSQL}>Generer SQL</Button>
+                      <Button onClick={fetchData} disabled={isLoading}>
+                        {isLoading ? 'Sender...' : 'Send'}
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="views">
+                  <div className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label>View</Label>
+                      <Select 
+                        value={selectedView} 
+                        onValueChange={setSelectedView}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Vælg view" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="v_hotel_månedlig_omsætning">Hotel Månedlig Omsætning</SelectItem>
+                          <SelectItem value="v_populære_v��relser">Populære Værelser</SelectItem>
+                          <SelectItem value="v_cykel_statistik">Cykel Statistik</SelectItem>
+                          <SelectItem value="v_konference_oversigt">Konference Oversigt</SelectItem>
+                          <SelectItem value="v_hotel_personale_oversigt">Hotel Personale Oversigt</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="hotel_id">Hotel ID (valgfrit)</Label>
+                      <Input 
+                        id="hotel_id"
+                        value={viewParams.hotel_id}
+                        onChange={(e) => handleViewParamChange('hotel_id', e.target.value)}
+                        placeholder="1"
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button onClick={generateSQL}>Generer SQL</Button>
+                      <Button onClick={fetchData} disabled={isLoading}>
+                        {isLoading ? 'Sender...' : 'Send'}
+                      </Button>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              {sqlCommand && (
+                <div className="mt-4">
+                  <h3 className="text-lg font-bold">SQL Kommando:</h3>
+                  <pre className="bg-muted p-4 rounded-md overflow-x-auto">
+                    <code>{sqlCommand}</code>
+                  </pre>
+                </div>
+              )}
+
+              {error && (
+                <div className="mt-4 p-4 bg-red-100 text-red-700 rounded-md">
+                  {error}
+                </div>
+              )}
             </div>
-          )
-        })}
-      </div>
-    )
-  }
-
-  const resetForm = () => {
-    setParams({})
-    setResult(null)
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Label>Vælg Type</Label>
-        <Select 
-          onValueChange={(value: 'view' | 'procedure') => {
-            setSelectedType(value)
-            setSelectedItem(null)
-            resetForm()
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Vælg type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="view">View</SelectItem>
-            <SelectItem value="procedure">Procedure</SelectItem>
-          </SelectContent>
-        </Select>
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>{selectedType === 'view' ? 'Vælg View' : 'Vælg Procedure'}</Label>
-        <Select 
-          onValueChange={(value) => {
-            setSelectedItem(
-              (selectedType === 'view' ? VIEWS : PROCEDURES).find(item => item.name === value) || null
-            )
-            resetForm()
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder={`Vælg ${selectedType}`} />
-          </SelectTrigger>
-          <SelectContent>
-            {(selectedType === 'view' ? VIEWS : PROCEDURES).map((item) => (
-              <SelectItem key={item.name} value={item.name}>
-                {item.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {renderParamInputs()}
-
-      <div className="flex gap-2">
-        <Button onClick={handleGenerate}>Generer</Button>
-        <Button variant="outline" onClick={resetForm}>Nulstil</Button>
-      </div>
-
-      {selectedItem && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{selectedItem.name}</CardTitle>
-            <CardDescription>{selectedItem.description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-medium mb-2">SQL Kommando:</h4>
-                <pre className="bg-muted p-2 rounded-md overflow-x-auto">
-                  <code>{selectedItem.sqlCommand}</code>
-                </pre>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium mb-2">Resultat:</h4>
-                {formatSampleResult(result || selectedItem.sampleResult)}
+      {result && (
+        <div className="border rounded-lg p-6">
+          <h3 className="text-lg font-bold mb-4">Resultat:</h3>
+          <div className="max-h-[calc(100vh-200px)] flex flex-col">
+            <div className="relative overflow-x-auto">
+              <div className="overflow-y-auto">
+                <table className="w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {Object.keys(result[0] || {}).map((header) => (
+                        <th
+                          key={header}
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap sticky top-0 bg-gray-50 z-10 border-b"
+                        >
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {result.map((row: any, i: number) => (
+                      <tr key={i} className="hover:bg-gray-50">
+                        {Object.values(row).map((value: any, j: number) => (
+                          <td key={j} className="px-4 py-2 text-sm text-gray-500 whitespace-nowrap">
+                            {value?.toString() || ''}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
-
-      <TheorySection />
     </div>
-  )
-}
-
-const formatSampleResult = (result: SampleResult[]) => {
-  if (result.length === 0) return 'No results'
-  
-  const headers = Object.keys(result[0])
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          {headers.map((header) => (
-            <TableHead key={header}>{header}</TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {result.map((row, index) => (
-          <TableRow key={index}>
-            {headers.map((header) => (
-              <TableCell key={header}>
-                {row[header] instanceof Date 
-                  ? format(row[header] as Date, 'yyyy-MM-dd') 
-                  : String(row[header])}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
   )
 }
 

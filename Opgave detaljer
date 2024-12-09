@@ -1,0 +1,117 @@
+Opgave 1
+
+- Udarbejd en liste over attributterne for hver tabel idet du bør definere domæner for hver attribut (hvorfor?). 
+
+ Overvej nøje hver attributs domæne
+
+ - Bestem kandidatnøgler og primærnøgle for hver tabel og lav et Database design. (Visio eller MySQL Workbench)
+
+ - Overvej nøje for hver attribut om den må antage værdien NULL og om der er en oplagt defaultværdi
+
+ - Overvej hvordan forbindelsen skabes mellem de to tabeller - dvs. hvor skal der være en fremmednøgle og hvilken primærnøgle (eller kandidatnøgle) skal den referere til
+
+Opgave 2
+
+ - Brug MySQL Workbench til at danne databasen “CBZhotels”.  
+
+Se https://www.guru99.com/introduction-to-mysql-workbench.html
+
+ - Definer de Data-domæner, tabeller og nøgler du udarbejdede i “Opgave 1”
+
+Opgave 3
+
+ - Indsæt flg. data i tabellen HOTEL:
+
+ Nr. Navn Adresse
+
+ 1 The Pope Vatikangade 1, 1111 Bispeborg
+
+ 2 Lucky Star Bredgade 12, 2222 Hjemby
+
+ 3 Discount Billigvej 7, 3333 Lilleby
+
+ 4 deLuxe Kapital Avenue 99, 4444 Borgerslev
+
+ 5 Discount Billiggade 12, 6666 Roslev
+
+ Brug “SELECT * FROM HOTEL” til at se alle data fra tabellen
+
+ - Indsæt flg. data i tabellen RUM:
+
+  Nr. Hotel Type Pris
+
+ 1 “The Pope” i Bispeborg D 200
+
+ 2 “The Pope” i Bispeborg D 200
+
+ 11 “The Pope” i Bispeborg S 150
+
+ 21 “The Pope” i Bispeborg F 220
+
+ 1 “Lucky Star” i Hjemby D 230
+
+ 2 “Lucky Star” i Hjemby D 230
+
+ 11 “Lucky Star” i Hjemby S 180
+
+ 21 “Lucky Star” i Hjemby F 300
+
+ 1 “Discount” i Lilleby D 175
+
+ 2 “Discount” i Roslev D 170
+
+ Brug “SELECT * FROM RUM” til at se alle data fra tabellen
+
+Da det viser sig at der er behov for nogle ændringer besluttes det at definitionen af databasen skal udføres via et script. Det vil dermed blive lettere at foretage ændringer og så udføre hele definitionen på ny. 
+
+Opgave 4
+
+Lav en backup af den database du har defineret til scriptet “ZBChotelDef.sql” 
+
+Test at din backup virker - ved at drop din database og brug din backup til at sæt data ind igen.
+
+Opgave 5
+
+Efter at den første udgave af databasen begynder det at ligne noget der kan bruges
+
+derfor beslutter hotelkædens ledelse at nu skal der udvides i retningen af et booking-system. Der ønskes derfor oplysninger om kædens kunder samt deres reserveringer. 
+
+3 tabeller skal altså tilføjes:
+
+Gæster (Guest)
+
+Skal indeholde oplysninger om hotelkædens nuværende og tidligere kunder 
+
+En kunde (gæst) identificeres ved et entydigt kundenummer (heltal), 
+
+et fornavn + efternavn (maks. 50 tegn),telefonnr, adresse ,en e-mail adresse (maks. 50 tegn), samt særlige bemærkninger om gæsten.(Bruger af hjælpemidler såsom kørerstol eller førerhund)
+
+Booking
+
+Skal indeholde oplysninger om de nuværende og tidligere reservationer der er foretaget af kunderne. 
+
+En reservation foretages af en kunde på et angivet hotel samt værelsesnummer.
+
+Hvis booking er online gives der rabat på 10%, og er kunden medlem af FDM gives der 12% rabat på hele regningen.
+
+For at booking kan se hvilke værelser der er ledig skal der angives dato for reservationens start og slut. (Husk det er i dato format). 
+
+Hotelpersonale
+
+Denne hotelkæde har som alle andre hoteller : hotelpersonale
+
+At arbejde som hotelpersonale vil sige at være stuepige eller rengøringsmedhjælper. De gør rent og sørger for, at hotellets 
+
+værelser og gangarealer fremstår indbydende/rene. 
+
+De andre ansatte på et hotel er enten administrations- og receptionspersonale, betjeningspersonale eller køkkenpersonale.
+
+På hver af de 5 CBZ-hoteller er ansat : 
+
+3 stuepiger/rengøringsmedhjælper ,  2 ledere , 8  administrations/receptionspersonale , 8 betjeningspersonale/køkkenpersonale.
+
+Opgave 6
+
+Pave Francis og hans følge kommer forbi og bor på "The Pope".
+
+Der skal derfor tilføjes booking af konferencecenteret med tilhørende udstyr, antal konference gæster, kundens ønsker, afholdelses dato(start /slut) og forplejning under konferencen.
