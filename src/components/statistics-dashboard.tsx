@@ -18,6 +18,7 @@ import {
   Pie,
   Cell
 } from "recharts"
+import { useToast } from "@/hooks/use-toast"
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8']
 
@@ -78,7 +79,7 @@ export default function StatisticsDashboard() {
   const [seasonalData, setSeasonalData] = useState<SeasonalAnalysis[]>([])
   const [customerSegments, setCustomerSegments] = useState<CustomerSegment[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -89,17 +90,31 @@ export default function StatisticsDashboard() {
           fetch('/api/database?view=v_kunde_segmentering')
         ])
 
+        // Check for response errors
+        if (!trendsRes.ok || !seasonalRes.ok || !segmentsRes.ok) {
+          throw new Error('One or more API requests failed')
+        }
+
         const [trendsData, seasonalData, segmentsData] = await Promise.all([
           trendsRes.json(),
           seasonalRes.json(),
           segmentsRes.json()
         ])
 
+        // Validate data before setting state
+        if (!Array.isArray(trendsData?.result)) {
+          throw new Error('Invalid booking trends data')
+        }
+
         setBookingTrends(trendsData.result)
-        setSeasonalData(seasonalData.result)
-        setCustomerSegments(segmentsData.result)
+        setSeasonalData(seasonalData.result || [])
+        setCustomerSegments(segmentsData.result || [])
       } catch (err) {
-        setError('Failed to fetch statistics')
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load statistics. Please try again later."
+        })
         console.error('Error fetching statistics:', err)
       } finally {
         setIsLoading(false)
@@ -107,14 +122,76 @@ export default function StatisticsDashboard() {
     }
 
     fetchData()
-  }, [])
+  }, [toast])
 
+  // Early return for loading state
   if (isLoading) {
-    return <div>Loading statistics...</div>
+    return null // Using Suspense fallback instead
   }
 
-  if (error) {
-    return <div>Error: {error}</div>
+  // Guard against empty data
+  if (!bookingTrends.length && !seasonalData.length && !customerSegments.length) {
+    return (
+      <div className="text-center py-8 text-gray-400">
+        No statistics data available
+      </div>
+    )
+  }
+
+  const renderBookingTrends = () => {
+    if (!bookingTrends.length) return null
+
+    return (
+      <ResponsiveContainer width="100%" height={400}>
+        <LineChart 
+          data={bookingTrends} 
+          margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
+        >
+          <CartesianGrid {...chartConfig.grid} />
+          <XAxis 
+            dataKey="booking_måned" 
+            {...chartConfig.xAxis}
+          />
+          <YAxis 
+            yAxisId="left"
+            {...chartConfig.yAxis}
+            domain={[0, 'auto']}
+          />
+          <YAxis 
+            yAxisId="right" 
+            orientation="right" 
+            {...chartConfig.yAxis}
+            domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2)]}
+          />
+          <Tooltip {...chartConfig.tooltip} />
+          <Legend 
+            wrapperStyle={{ color: "#888" }}
+          />
+          <Line
+            yAxisId="left"
+            type="natural"
+            dataKey="antal_bookinger"
+            stroke="#8884d8"
+            name="Antal Bookinger"
+            dot={{ fill: "#8884d8", r: 4 }}
+            strokeWidth={2}
+            connectNulls
+            activeDot={{ r: 6 }}
+          />
+          <Line
+            yAxisId="right"
+            type="natural"
+            dataKey="samlet_omsætning"
+            stroke="#4ade80"
+            name="Omsætning (DKK)"
+            dot={{ fill: "#4ade80", r: 4 }}
+            strokeWidth={2}
+            connectNulls
+            activeDot={{ r: 6 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    )
   }
 
   return (
@@ -135,55 +212,7 @@ export default function StatisticsDashboard() {
           </CardHeader>
           <CardContent>
             <div className="h-[400px] w-full">
-              <ResponsiveContainer>
-                <LineChart 
-                  data={bookingTrends} 
-                  margin={{ top: 30, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid {...chartConfig.grid} />
-                  <XAxis 
-                    dataKey="booking_måned" 
-                    {...chartConfig.xAxis}
-                  />
-                  <YAxis 
-                    yAxisId="left"
-                    {...chartConfig.yAxis}
-                    domain={[0, 'auto']}
-                  />
-                  <YAxis 
-                    yAxisId="right" 
-                    orientation="right" 
-                    {...chartConfig.yAxis}
-                    domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2)]}
-                  />
-                  <Tooltip {...chartConfig.tooltip} />
-                  <Legend 
-                    wrapperStyle={{ color: "#888" }}
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="natural"
-                    dataKey="antal_bookinger"
-                    stroke="#8884d8"
-                    name="Antal Bookinger"
-                    dot={{ fill: "#8884d8", r: 4 }}
-                    strokeWidth={2}
-                    connectNulls
-                    activeDot={{ r: 6 }}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="natural"
-                    dataKey="samlet_omsætning"
-                    stroke="#4ade80"
-                    name="Omsætning (DKK)"
-                    dot={{ fill: "#4ade80", r: 4 }}
-                    strokeWidth={2}
-                    connectNulls
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {renderBookingTrends()}
             </div>
           </CardContent>
         </Card>
