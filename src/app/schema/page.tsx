@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import HotelDatabaseSchema from "@/components/hotel-database-schema"
+import ReturnButton from "@/components/return-button"
 
 export const metadata: Metadata = {
   title: "Database Schema - Hotel Database System",
@@ -8,7 +9,8 @@ export const metadata: Metadata = {
 
 export default function Schema() {
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="container mx-auto py-8 px-8 relative">
+      <ReturnButton />
       <HotelDatabaseSchema />
     </div>
   )

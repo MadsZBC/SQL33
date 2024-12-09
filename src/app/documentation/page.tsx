@@ -7,6 +7,7 @@ import { join } from 'path'
 import Markdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { materialDark } from 'react-syntax-highlighter/dist/cjs/styles/prism'
+import ReturnButton from "@/components/return-button"
 
 export const metadata: Metadata = {
   title: "Technical Documentation - Hotel Database System",
@@ -19,9 +20,10 @@ export default function Documentation() {
   const markdownContent = readFileSync(markdownPath, 'utf-8')
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <article className="prose prose-slate dark:prose-invert max-w-none">
-        <Markdown
+    <div className="container mx-auto py-8 px-8 relative">
+      <ReturnButton />
+        <article className="prose prose-slate dark:prose-invert max-w-none">
+          <Markdown
           components={{
             // Custom rendering for code blocks
             code({ node, inline, className, children, ...props }) {

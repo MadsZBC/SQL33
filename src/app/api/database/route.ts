@@ -35,6 +35,23 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '10')
   const offset = (page - 1) * limit
 
+  if (view === 'v_booking_trends' || 
+      view === 'v_sæson_analyse' || 
+      view === 'v_kunde_segmentering' ||
+      view === 'v_værelse_performance' ||
+      view === 'v_revpar_analyse') {
+    try {
+      const [rows] = await pool.query(`SELECT * FROM ${view}`)
+      return Response.json({ result: rows })
+    } catch (error) {
+      console.error('Database error:', error)
+      return Response.json(
+        { error: 'Failed to fetch statistics' },
+        { status: 500 }
+      )
+    }
+  }
+
   if (view === 'v_bookinger') {
     try {
       const [bookings] = await pool.query(

@@ -118,4 +118,100 @@ SELECT
 FROM hotel_personale hp
 JOIN hoteller h ON hp.hotel_id = h.hotel_id
 GROUP BY h.hotel_id, h.hotel_navn, hp.stillingsbetegnelse
-ORDER BY h.hotel_id, hp.stillingsbetegnelse; 
+ORDER BY h.hotel_id, hp.stillingsbetegnelse;
+
+-- First, let's add some trend analysis views
+CREATE OR REPLACE VIEW v_booking_trends AS
+SELECT 
+    DATE_FORMAT(check_ind_dato, '%Y-%m') as booking_måned,
+    COUNT(*) as antal_bookinger,
+    SUM(total_pris) as samlet_omsætning,
+    ROUND(AVG(total_pris), 2) as gennemsnit_pris,
+    COUNT(DISTINCT gæste_id) as unikke_gæster,
+    SUM(CASE WHEN online_booking = 1 THEN 1 ELSE 0 END) as online_bookinger,
+    ROUND(AVG(DATEDIFF(check_ud_dato, check_ind_dato)), 1) as gns_opholdslængde
+FROM bookinger
+WHERE check_ind_dato >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+GROUP BY DATE_FORMAT(check_ind_dato, '%Y-%m')
+ORDER BY booking_måned;
+
+-- Add seasonal analysis view
+CREATE OR REPLACE VIEW v_sæson_analyse AS
+SELECT 
+    h.hotel_navn,
+    CASE 
+        WHEN MONTH(b.check_ind_dato) IN (12,1,2) THEN 'Vinter'
+        WHEN MONTH(b.check_ind_dato) IN (3,4,5) THEN 'Forår'
+        WHEN MONTH(b.check_ind_dato) IN (6,7,8) THEN 'Sommer'
+        ELSE 'Efterår'
+    END as sæson,
+    COUNT(*) as antal_bookinger,
+    ROUND(AVG(b.total_pris), 2) as gns_pris,
+    ROUND(SUM(b.total_pris), 2) as total_omsætning,
+    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY h.hotel_id), 2) as sæson_fordeling_pct
+FROM bookinger b
+JOIN hoteller h ON b.hotel_id = h.hotel_id
+WHERE b.check_ind_dato >= DATE_SUB(CURDATE(), INTERVAL 24 MONTH)
+GROUP BY 
+    h.hotel_navn,
+    CASE 
+        WHEN MONTH(b.check_ind_dato) IN (12,1,2) THEN 'Vinter'
+        WHEN MONTH(b.check_ind_dato) IN (3,4,5) THEN 'Forår'
+        WHEN MONTH(b.check_ind_dato) IN (6,7,8) THEN 'Sommer'
+        ELSE 'Efterår'
+    END;
+
+-- Add customer segmentation view
+CREATE OR REPLACE VIEW v_kunde_segmentering AS
+SELECT 
+    g.status as kunde_segment,
+    COUNT(DISTINCT g.gæste_id) as antal_kunder,
+    COUNT(b.booking_id) as antal_bookinger,
+    ROUND(AVG(b.total_pris), 2) as gns_ordreværdi,
+    ROUND(SUM(b.total_pris), 2) as total_omsætning,
+    ROUND(COUNT(b.booking_id) * 100.0 / SUM(COUNT(b.booking_id)) OVER (), 2) as booking_andel_pct
+FROM gæster g
+LEFT JOIN bookinger b ON g.gæste_id = b.gæste_id
+GROUP BY g.status;
+
+-- Add room type performance analysis
+CREATE OR REPLACE VIEW v_værelse_performance AS
+SELECT 
+    h.hotel_navn,
+    v.værelse_type,
+    COUNT(DISTINCT v.værelse_id) as antal_værelser,
+    COUNT(b.booking_id) as antal_bookinger,
+    ROUND(AVG(b.total_pris), 2) as gns_pris_pr_booking,
+    ROUND(SUM(b.total_pris), 2) as total_omsætning,
+    ROUND(COUNT(b.booking_id) * 100.0 / 
+        (SELECT COUNT(*) FROM bookinger WHERE hotel_id = h.hotel_id), 2) as booking_andel_pct
+FROM værelser v
+LEFT JOIN bookinger b ON v.værelse_id = b.værelse_id AND v.hotel_id = b.hotel_id
+JOIN hoteller h ON v.hotel_id = h.hotel_id
+GROUP BY h.hotel_navn, v.værelse_type;
+
+-- Add revenue per available room (RevPAR) analysis
+CREATE OR REPLACE VIEW v_revpar_analyse AS
+WITH DagligOmsætning AS (
+    SELECT 
+        h.hotel_id,
+        h.hotel_navn,
+        DATE(b.check_ind_dato) as dato,
+        SUM(b.total_pris / DATEDIFF(b.check_ud_dato, b.check_ind_dato)) as daglig_omsætning,
+        COUNT(DISTINCT v.værelse_id) as tilgængelige_værelser
+    FROM hoteller h
+    JOIN værelser v ON h.hotel_id = v.hotel_id
+    LEFT JOIN bookinger b ON v.værelse_id = b.værelse_id 
+        AND v.hotel_id = b.hotel_id
+        AND b.check_ind_dato <= CURDATE()
+        AND b.check_ud_dato > CURDATE()
+    WHERE b.check_ind_dato >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+    GROUP BY h.hotel_id, h.hotel_navn, DATE(b.check_ind_dato)
+)
+SELECT 
+    hotel_navn,
+    ROUND(AVG(daglig_omsætning / tilgængelige_værelser), 2) as revpar,
+    ROUND(SUM(daglig_omsætning), 2) as total_omsætning,
+    ROUND(AVG(daglig_omsætning), 2) as gns_daglig_omsætning
+FROM DagligOmsætning
+GROUP BY hotel_id, hotel_navn; 

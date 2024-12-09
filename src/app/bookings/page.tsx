@@ -1,10 +1,12 @@
 import { Suspense } from 'react'
 import BookingsList from '@/components/bookings/bookings-list'
 import { Skeleton } from '@/components/ui/skeleton'
+import ReturnButton from "@/components/return-button"
 
 export default function BookingsPage() {
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8 px-4 relative">
+      <ReturnButton />
       <h1 className="text-3xl font-bold mb-6">Booking Oversigt</h1>
       <Suspense fallback={<BookingsListSkeleton />}>
         <BookingsList />

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -69,24 +69,23 @@ export default function BookingsList() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalBookings, setTotalBookings] = useState(0)
 
-  useEffect(() => {
-    fetchBookings()
-  }, [currentPage])
-
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     try {
-      const response = await fetch(`/api/database?view=v_bookinger&page=${currentPage}&limit=${ITEMS_PER_PAGE}`)
-      const data = await response.json()
-      if (data.result) {
-        setBookings(data.result.bookings || [])
-        setTotalBookings(data.result.total || 0)
-      }
+      setIsLoading(true);
+      const response = await fetch('/api/bookings');
+      const data = await response.json();
+      setBookings(data);
+      setTotalBookings(data.length);
     } catch (error) {
-      console.error('Error fetching bookings:', error)
+      console.error('Error fetching bookings:', error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
   const handleStatusChange = async (bookingId: number, newStatus: string) => {
     try {
