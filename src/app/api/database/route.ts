@@ -15,62 +15,29 @@ const pool = mysql.createPool({
 })
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const procedure = searchParams.get('procedure')
-
   try {
-    switch (procedure) {
-      case 'sp_find_ledige_værelser': {
-        const hotelId = searchParams.get('hotel_id')
-        const checkInDato = searchParams.get('check_ind_dato')
-        const checkUdDato = searchParams.get('check_ud_dato')
+    const { searchParams } = new URL(request.url);
+    const view = searchParams.get('view');
 
-        if (!hotelId || !checkInDato || !checkUdDato) {
-          return NextResponse.json(
-            { error: 'Missing required parameters' },
-            { status: 400 }
-          )
-        }
-
-        // Query to find available rooms
-        const [rooms] = await pool.query(`
-          SELECT 
-            v.*
-          FROM værelser v
-          WHERE v.hotel_id = ?
-          AND v.værelse_id NOT IN (
-            SELECT b.værelse_id
-            FROM bookinger b
-            WHERE b.hotel_id = ?
-            AND b.booking_status != 'Annulleret'
-            AND (
-              (b.check_ind_dato <= ? AND b.check_ud_dato >= ?)
-              OR (b.check_ind_dato <= ? AND b.check_ud_dato >= ?)
-              OR (b.check_ind_dato >= ? AND b.check_ud_dato <= ?)
-            )
-          )
-        `, [
-          hotelId, hotelId,
-          checkUdDato, checkInDato,
-          checkInDato, checkInDato,
-          checkInDato, checkUdDato
-        ])
-
-        return NextResponse.json({ result: rooms })
-      }
-
-      default:
-        return NextResponse.json(
-          { error: 'Invalid procedure' },
-          { status: 400 }
-        )
+    if (!view) {
+      return NextResponse.json(
+        { error: 'View parameter is required' },
+        { status: 400 }
+      );
     }
+
+    // Sanitize the view name to prevent SQL injection
+    const sanitizedView = view.replace(/[^a-zA-Z0-9_æøåÆØÅ]/g, '');
+    
+    const [rows] = await pool.query(`SELECT * FROM ${sanitizedView}`);
+
+    return NextResponse.json({ result: rows });
   } catch (error) {
-    console.error('Database error:', error)
+    console.error('Database error:', error);
     return NextResponse.json(
       { error: 'Database error' },
       { status: 500 }
-    )
+    );
   }
 }
 

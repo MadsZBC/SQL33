@@ -4,310 +4,357 @@ import { useState, useEffect } from "react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Mermaid from "./mermaid"
+import ExportDiagramsButton from "./export-diagrams-button"
 
-interface DatabaseMetrics {
-  queryPerformance: {
-    avgResponse: string
-    peakLoad: string
-  }
-  storageUsage: {
-    total: string
-    growth: string
-  }
-  indexStats: {
-    size: string
-    usage: string
-  }
-  cacheMetrics: {
-    bufferHit: string
-    queryCache: string
-  }
-}
+// Define the diagrams object with Mermaid syntax for each diagram type
+export const diagrams: Record<string, string> = {
+  erd: `
+erDiagram
+    HOTELLER ||--o{ VAERELSER : has
+    HOTELLER ||--o{ HOTEL_PERSONALE : employs
+    HOTELLER ||--o{ BOOKINGER : contains
+    GAESTER ||--o{ BOOKINGER : makes
+    GAESTER ||--o{ CYKEL_UDLEJNING : rents
+    GAESTER ||--o{ KONFERENCE_BOOKINGER : books
+    VAERELSER ||--o{ BOOKINGER : "reserved in"
 
-// Define a type for the valid diagram keys
-type DiagramType = 'erd' | 'schema' | 'views' | 'statistics' | 'performance';
-
-export default function DatabaseDiagrams() {
-  const [activeTab, setActiveTab] = useState<DiagramType>('erd')
-  const [metrics, setMetrics] = useState<DatabaseMetrics | null>(null)
-
-  // Fetch metrics every 30 seconds
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        const response = await fetch('/api/database/metrics')
-        const data = await response.json()
-        setMetrics(data)
-      } catch (error) {
-        console.error('Failed to fetch metrics:', error)
-      }
+    HOTELLER {
+        int hotel_id PK
+        string hotel_navn
+        string adresse
+        enum hotel_type "S/L"
+        timestamp oprettet_den
     }
 
-    fetchMetrics()
-    const interval = setInterval(fetchMetrics, 30000)
-    return () => clearInterval(interval)
+    GAESTER {
+        int gaeste_id PK
+        string fornavn
+        string efternavn
+        string telefon
+        string email
+        string adresse
+        enum gaeste_type "D/F/U"
+        enum status "Aktiv/Inaktiv/VIP"
+        text noter
+        timestamp oprettet_den
+    }
+
+    VAERELSER {
+        int vaerelse_id PK
+        int hotel_id FK
+        enum vaerelse_type "D/S/F"
+        decimal pris
+        boolean tilgaengelig
+    }
+
+    BOOKINGER {
+        int booking_id PK
+        int gaeste_id FK
+        int hotel_id FK
+        int vaerelse_id FK
+        date check_ind_dato
+        date check_ud_dato
+        boolean online_booking
+        boolean fdm_medlem
+        decimal total_pris
+        enum booking_status "Bekraeftet/Afventende/Annulleret"
+    }
+
+    HOTEL_PERSONALE {
+        int personale_id PK
+        int hotel_id FK
+        string fornavn
+        string efternavn
+        enum stilling "Administrator/Receptionist/Leder"
+        date ansaettelses_dato
+        decimal loen
+    }
+
+    CYKEL_UDLEJNING {
+        int cykel_id PK
+        int gaeste_id FK
+        enum cykel_type "El-cykel/Ladcykel"
+        string laasekode
+        date start_dato
+        date slut_dato
+        enum status "Ledig/Udlejet"
+    }
+
+    KONFERENCE_BOOKINGER {
+        int konference_id PK
+        int hotel_id FK
+        int gaeste_id FK
+        date start_dato
+        date slut_dato
+        int antal_gaester
+        text kunde_oensker
+        string forplejning
+        string udstyr
+    }
+  `,
+  schema: `
+graph TB
+    subgraph "Core Tables" 
+        H["🏨 Hoteller"]
+        G["👥 Gæster"]
+        V["🛏️ Værelser"]
+        B["📅 Bookinger"]
+    end
+    
+    subgraph "Additional Services"
+        C["🚲 Cykel Udlejning"]
+        K["🎯 Konference Bookinger"]
+    end
+    
+    subgraph "Management"
+        P["👤 Hotel Personale"]
+    end
+    
+    H -->|has| V
+    H -->|contains| B
+    H -->|employs| P
+    G -->|makes| B
+    G -->|rents| C
+    G -->|books| K
+    V -->|reserved in| B
+
+    classDef default fill:#1F2937,stroke:#4B5563,color:#E5E7EB;
+    classDef core fill:#374151,stroke:#4B5563,color:#E5E7EB;
+    class H,G,V,B core;
+  `,
+  views: `
+graph LR
+    subgraph "Database Views"
+        A["📊 v_ledige_værelser"]
+        B["📋 v_aktuelle_bookinger"]
+        C["📈 v_hotel_belægning"]
+        D["⭐ v_vip_gæster"]
+        E["👥 v_personale_fordeling"]
+    end
+    
+    subgraph "Source Tables"
+        H["🏨 Hoteller"]
+        V["🛏️ Værelser"]
+        B1["📅 Bookinger"]
+        G["👥 Gæster"]
+        P["👤 Personale"]
+    end
+    
+    H -->|source| A
+    V -->|source| A
+    B1 -->|source| A
+    H -->|source| B
+    G -->|source| B
+    B1 -->|source| B
+    H -->|source| C
+    V -->|source| C
+    B1 -->|source| C
+    G -->|source| D
+    B1 -->|source| D
+    H -->|source| E
+    P -->|source| E
+
+    classDef default fill:#1F2937,stroke:#4B5563,color:#E5E7EB;
+    classDef view fill:#374151,stroke:#4B5563,color:#E5E7EB;
+    class A,B,C,D,E view;
+  `,
+  statistics: `
+graph TB
+    subgraph Key Metrics
+        A[Booking Statistics]
+        B[Revenue Analysis]
+        C[Occupancy Rates]
+        D[Customer Segments]
+    end
+    
+    A --> E[Monthly Trends]
+    A --> F[Seasonal Patterns]
+    B --> G[Revenue per Room]
+    B --> H[Total Revenue]
+    C --> I[Room Utilization]
+    C --> J[Peak Periods]
+    D --> K[Guest Types]
+    D --> L[Booking Patterns]
+  `,
+  performance: `
+graph LR
+    subgraph Database Metrics
+        A[Query Performance]
+        B[Storage Usage]
+        C[Index Stats]
+        D[Cache Metrics]
+    end
+    
+    A --> E[Avg Response: 45ms]
+    A --> F[Peak Load: 1000 qps]
+    A --> G[Total Queries: 1M]
+    B --> H[Total: 500GB]
+    B --> I[Growth: 2GB/month]
+    C --> J[Size: 50GB]
+    C --> K[Usage: 95%]
+    D --> L[Buffer Hit: 99%]
+    D --> M[Query Cache: 85%]
+  `,
+  dataflow: `
+sequenceDiagram
+    participant C as Client
+    participant A as API
+    participant D as Database
+    participant S as Storage
+    
+    C->>A: Request Booking
+    A->>D: Check Availability
+    D->>A: Room Status
+    A->>D: Create Booking
+    D->>S: Store Data
+    S->>D: Confirm Storage
+    D->>A: Booking Created
+    A->>C: Confirmation
+  `,
+  deployment: `
+graph TB
+    subgraph Production
+        A[Load Balancer]
+        B[Web Server 1]
+        C[Web Server 2]
+        D[Database Primary]
+        E[Database Replica]
+    end
+    
+    A --> B
+    A --> C
+    B --> D
+    C --> D
+    D --> E
+  `,
+  checkin: `
+stateDiagram-v2
+    [*] --> Arrival
+    Arrival --> CheckIn: Guest Arrives
+    CheckIn --> RoomAssignment: Verify Booking
+    RoomAssignment --> KeyHandover: Room Ready
+    KeyHandover --> Complete: Keys Given
+    Complete --> [*]
+  `,
+  booking: `
+sequenceDiagram
+    participant G as Guest
+    participant R as Reception
+    participant S as System
+    participant D as Database
+    
+    G->>R: Request Booking
+    R->>S: Check Availability
+    S->>D: Query Rooms
+    D->>S: Available Rooms
+    S->>R: Show Options
+    R->>G: Present Choices
+    G->>R: Confirm Booking
+    R->>S: Create Booking
+    S->>D: Store Booking
+    D->>S: Confirm
+    S->>R: Booking Complete
+    R->>G: Confirmation
+  `
+}
+
+
+// Define a type for the valid diagram keys
+type DiagramType = 'erd' | 'schema' | 'views' | 'statistics' | 'performance' | 'dataflow' | 'deployment' | 'checkin' | 'booking';
+
+export default function DatabaseDiagrams() {
+  const [activeTab, setActiveTab] = useState<DiagramType>('deployment')
+  const [key, setKey] = useState(0)
+  const [mounted, setMounted] = useState(false)
+
+  // Handle initial mount
+  useEffect(() => {
+    setMounted(true)
   }, [])
 
-  const diagrams: Record<DiagramType, string> = {
-    erd: `
-    erDiagram
-      GUESTS ||--o{ BOOKINGS : "makes"
-      GUESTS ||--o{ CONFERENCE_BOOKINGS : "makes"
-      HOTELS ||--o{ ROOMS : "has"
-      HOTELS ||--o{ HOTEL_STAFF : "employs"
-      HOTELS ||--o{ BIKE_RENTALS : "offers"
-      ROOMS ||--o{ BOOKINGS : "included in"
-      
-      GUESTS {
-        int guest_id PK
-        string first_name
-        string last_name
-        string phone
-        string email
-        string address
-        enum guest_type
-        enum status
-        text notes
-        timestamp created_at
-      }
+  // Force re-render when tab changes
+  useEffect(() => {
+    if (mounted) {
+      setKey(prev => prev + 1)
+    }
+  }, [activeTab, mounted])
 
-      HOTELS {
-        int hotel_id PK
-        string hotel_name
-        string address
-        string phone
-        string email
-        enum hotel_type
-        int room_count
-        decimal daily_rate
-      }
-
-      ROOMS {
-        int room_id PK
-        int hotel_id FK
-        enum room_type
-        decimal price
-      }
-
-      BOOKINGS {
-        int booking_id PK
-        int guest_id FK
-        int hotel_id FK
-        int room_id FK
-        date check_in_date
-        date check_out_date
-        boolean online_booking
-        boolean fdm_member
-        decimal total_price
-        enum booking_status
-      }
-
-      HOTEL_STAFF {
-        int staff_id PK
-        string first_name
-        string last_name
-        enum position
-        int hotel_id FK
-        date hire_date
-        decimal salary
-        text notes
-      }
-
-      BIKE_RENTALS {
-        int bike_id PK
-        enum bike_type
-        string lock_code
-        date rental_start
-        date rental_end
-        int guest_id FK
-        enum status
-        int last_renter_id FK
-      }
-
-      CONFERENCE_BOOKINGS {
-        int conference_id PK
-        int hotel_id FK
-        int guest_id FK
-        date start_date
-        date end_date
-        int guest_count
-        text requirements
-        string catering
-        string equipment
-      }
-    `,
-    schema: `
-    graph TB
-      subgraph Database Schema
-        A[Hotels] --> B[Bookings]
-        A --> C[Conference Bookings]
-        A --> E[Rooms]
-        A --> F[Hotel Staff]
-        A --> G[Bike Rentals]
-        E --> B
-        
-        %% Improved contrast for dark mode
-        style A fill:#ffd700,stroke:#fff,stroke-width:2px,color:#000
-        style B fill:#a8c6ff,stroke:#fff,stroke-width:2px,color:#000
-        style C fill:#ffb7ff,stroke:#fff,stroke-width:2px,color:#000
-        style E fill:#90EE90,stroke:#fff,stroke-width:2px,color:#000
-        style F fill:#ffb3b3,stroke:#fff,stroke-width:2px,color:#000
-        style G fill:#87CEEB,stroke:#fff,stroke-width:2px,color:#000
-
-        %% Add labels with better contrast
-        linkStyle default stroke:#fff,stroke-width:2px
-      end
-    `,
-    views: `
-    graph LR
-      subgraph Database Views
-        A[Available Rooms] --> B[Hotels + Rooms]
-        C[Current Bookings] --> D[Bookings + Guests]
-        E[Monthly Revenue] --> F[Bookings + Hotels]
-        G[VIP Guests] --> H[Guests + Bookings]
-        I[Popular Rooms] --> J[Bookings + Rooms]
-        
-        %% Improved contrast for dark mode
-        style A fill:#ffd700,stroke:#fff,stroke-width:2px,color:#000
-        style C fill:#a8c6ff,stroke:#fff,stroke-width:2px,color:#000
-        style E fill:#ffb7ff,stroke:#fff,stroke-width:2px,color:#000
-        style G fill:#90EE90,stroke:#fff,stroke-width:2px,color:#000
-        style I fill:#ffb3b3,stroke:#fff,stroke-width:2px,color:#000
-        style B fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style D fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style F fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style H fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style J fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-
-        %% Add labels with better contrast
-        linkStyle default stroke:#fff,stroke-width:2px
-      end
-    `,
-    statistics: `
-    graph TB
-      subgraph Hotel Statistics
-        direction TB
-        
-        subgraph Occupancy Rates
-          A[Room Utilization]
-          A1[Luxury Hotels: 85%]
-          A2[Standard Hotels: 72%]
-          A --> A1
-          A --> A2
-        end
-
-        subgraph Booking Types
-          B[Booking Distribution]
-          B1[Online Bookings: 65%]
-          B2[Direct Bookings: 25%]
-          B3[Partner Bookings: 10%]
-          B --> B1
-          B --> B2
-          B --> B3
-        end
-
-        subgraph Guest Analysis
-          C[Guest Categories]
-          C1[VIP Guests: 15%]
-          C2[Regular Guests: 60%]
-          C3[Corporate Guests: 25%]
-          C --> C1
-          C --> C2
-          C --> C3
-        end
-
-        subgraph Revenue Metrics
-          D[Monthly Revenue]
-          D1[Rooms: 70%]
-          D2[Conferences: 20%]
-          D3[Bike Rentals: 10%]
-          D --> D1
-          D --> D2
-          D --> D3
-        end
-
-        %% Improved contrast for dark mode
-        style A fill:#ffd700,stroke:#fff,stroke-width:2px,color:#000
-        style B fill:#a8c6ff,stroke:#fff,stroke-width:2px,color:#000
-        style C fill:#ffb7ff,stroke:#fff,stroke-width:2px,color:#000
-        style D fill:#90EE90,stroke:#fff,stroke-width:2px,color:#000
-        
-        style A1 fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style A2 fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style B1 fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style B2 fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style B3 fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style C1 fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style C2 fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style C3 fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style D1 fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style D2 fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-        style D3 fill:#fff,stroke:#fff,stroke-width:2px,color:#000
-
-        linkStyle default stroke:#fff,stroke-width:2px
-      end
-    `,
-    performance: metrics ? `
-    graph TD
-      subgraph Database Performance
-        A[Query Performance] --> B[Avg Response: ${metrics.queryPerformance.avgResponse}]
-        A --> C[Peak Load: ${metrics.queryPerformance.peakLoad}]
-        
-        D[Storage Usage] --> E[Total: ${metrics.storageUsage.total}]
-        D --> F[Growth: ${metrics.storageUsage.growth}/month]
-        
-        G[Index Statistics] --> H[Size: ${metrics.indexStats.size}]
-        G --> I[Usage: ${metrics.indexStats.usage}]
-        
-        J[Cache Hit Ratio] --> K[Buffer Hit: ${metrics.cacheMetrics.bufferHit}]
-        J --> L[Query Cache: ${metrics.cacheMetrics.queryCache}]
-
-        %% Style improvements for better readability
-        style A fill:#FFD700,stroke:#333,stroke-width:2px,color:#000
-        style D fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000
-        style G fill:#FFC0CB,stroke:#333,stroke-width:2px,color:#000
-        style J fill:#98FB98,stroke:#333,stroke-width:2px,color:#000
-      end
-    ` : ''
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <ExportDiagramsButton />
+        </div>
+        <div className="h-[600px] w-full bg-[#121212] rounded-lg animate-pulse" />
+      </div>
+    )
   }
 
   return (
-    <Tabs 
-      defaultValue="erd" 
-      className="space-y-4" 
-      onValueChange={(value) => setActiveTab(value as DiagramType)}
-    >
-      <TabsList className="grid w-full grid-cols-5">
-        <TabsTrigger value="erd">ERD Diagram</TabsTrigger>
-        <TabsTrigger value="schema">Schema Overview</TabsTrigger>
-        <TabsTrigger value="views">Views Relationships</TabsTrigger>
-        <TabsTrigger value="statistics">Statistics</TabsTrigger>
-        <TabsTrigger value="performance">Performance</TabsTrigger>
-      </TabsList>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <ExportDiagramsButton />
+      </div>
+      <Tabs 
+        defaultValue="deployment" 
+        className="space-y-4" 
+        onValueChange={(value) => setActiveTab(value as DiagramType)}
+      >
+        <TabsList className="grid w-full grid-cols-9">
+          <TabsTrigger value="erd">ERD</TabsTrigger>
+          <TabsTrigger value="schema">Schema</TabsTrigger>
+          <TabsTrigger value="views">Views</TabsTrigger>
+          <TabsTrigger value="statistics">Stats</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
+          <TabsTrigger value="dataflow">Data Flow</TabsTrigger>
+          <TabsTrigger value="deployment">Deployment</TabsTrigger>
+          <TabsTrigger value="checkin">Check-in</TabsTrigger>
+          <TabsTrigger value="booking">Booking</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {activeTab === "erd" && "Entity Relationship Diagram"}
-            {activeTab === "schema" && "Database Schema Overview"}
-            {activeTab === "views" && "Database Views Relationships"}
-            {activeTab === "statistics" && "Hotel System Statistics"}
-            {activeTab === "performance" && "Database Performance Metrics"}
-          </CardTitle>
-          <CardDescription>
-            {activeTab === "erd" && "Shows the relationships between all database tables"}
-            {activeTab === "schema" && "Visual representation of the database structure"}
-            {activeTab === "views" && "Illustrates how views connect different tables"}
-            {activeTab === "statistics" && "Key metrics and utilization statistics from the hotel system"}
-            {activeTab === "performance" && "Database performance and resource utilization metrics"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="overflow-x-auto">
-            <Mermaid chart={diagrams[activeTab]} />
-          </div>
-        </CardContent>
-      </Card>
-    </Tabs>
+        <Card>
+          <CardHeader>
+            <CardTitle>{getDiagramTitle(activeTab)}</CardTitle>
+            <CardDescription>{getDiagramDescription(activeTab)}</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="overflow-x-auto bg-[#121212] p-4 rounded-lg" data-diagram-type={activeTab}>
+              <Mermaid key={`${activeTab}-${key}`} chart={diagrams[activeTab]} />
+            </div>
+          </CardContent>
+        </Card>
+      </Tabs>
+    </div>
   )
+}
+
+function getDiagramTitle(type: DiagramType): string {
+  const titles: Record<DiagramType, string> = {
+    erd: "Entity Relationship Diagram",
+    schema: "Database Schema Overview",
+    views: "Database Views Relationships",
+    statistics: "Hotel System Statistics",
+    performance: "Database Performance Metrics",
+    dataflow: "System Data Flow",
+    deployment: "Deployment Architecture",
+    checkin: "Check-in Process",
+    booking: "Booking Process"
+  }
+  return titles[type]
+}
+
+function getDiagramDescription(type: DiagramType): string {
+  const descriptions: Record<DiagramType, string> = {
+    erd: "Shows the relationships between all database tables",
+    schema: "Visual representation of the database structure",
+    views: "Illustrates how views connect different tables",
+    statistics: "Key metrics and utilization statistics",
+    performance: "Database performance and resource utilization metrics",
+    dataflow: "Visualizes how data flows through the system",
+    deployment: "Shows the system deployment architecture",
+    checkin: "Illustrates the guest check-in process",
+    booking: "Shows the booking process flow"
+  }
+  return descriptions[type]
 }

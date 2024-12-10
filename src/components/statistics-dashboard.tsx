@@ -84,38 +84,45 @@ export default function StatisticsDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Encode view names to handle special characters
+        const views = {
+          bookingTrends: encodeURIComponent('v_booking_trends'),
+          seasonalAnalysis: encodeURIComponent('v_sæson_analyse'),
+          customerSegments: encodeURIComponent('v_kunde_segmentering')
+        }
+
         const [trendsRes, seasonalRes, segmentsRes] = await Promise.all([
-          fetch('/api/database?view=v_booking_trends'),
-          fetch('/api/database?view=v_sæson_analyse'),
-          fetch('/api/database?view=v_kunde_segmentering')
+          fetch(`/api/database/metrics?view=${views.bookingTrends}`),
+          fetch(`/api/database/metrics?view=${views.seasonalAnalysis}`),
+          fetch(`/api/database/metrics?view=${views.customerSegments}`)
         ])
 
-        // Check for response errors
-        if (!trendsRes.ok || !seasonalRes.ok || !segmentsRes.ok) {
-          throw new Error('One or more API requests failed')
+        // Check individual responses and handle errors specifically
+        const checkResponse = async (response: Response, viewName: string) => {
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            throw new Error(`Failed to fetch ${viewName}: ${errorData.message || response.statusText}`)
+          }
+          return response.json()
         }
 
         const [trendsData, seasonalData, segmentsData] = await Promise.all([
-          trendsRes.json(),
-          seasonalRes.json(),
-          segmentsRes.json()
+          checkResponse(trendsRes, 'booking trends'),
+          checkResponse(seasonalRes, 'seasonal analysis'),
+          checkResponse(segmentsRes, 'customer segments')
         ])
 
-        // Validate data before setting state
-        if (!Array.isArray(trendsData?.result)) {
-          throw new Error('Invalid booking trends data')
-        }
-
-        setBookingTrends(trendsData.result)
-        setSeasonalData(seasonalData.result || [])
-        setCustomerSegments(segmentsData.result || [])
+        // Validate and set data with default empty arrays
+        setBookingTrends(Array.isArray(trendsData?.result) ? trendsData.result : [])
+        setSeasonalData(Array.isArray(seasonalData?.result) ? seasonalData.result : [])
+        setCustomerSegments(Array.isArray(segmentsData?.result) ? segmentsData.result : [])
       } catch (err) {
+        console.error('Error fetching statistics:', err)
         toast({
           variant: "destructive",
-          title: "Error",
-          description: "Failed to load statistics. Please try again later."
+          title: "Error loading statistics",
+          description: err instanceof Error ? err.message : "Failed to load statistics data",
         })
-        console.error('Error fetching statistics:', err)
       } finally {
         setIsLoading(false)
       }
