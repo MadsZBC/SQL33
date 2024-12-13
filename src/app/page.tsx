@@ -1,24 +1,37 @@
 import Link from "next/link";
+import { 
+  FileText, 
+  Database, 
+  CalendarDays, 
+  LayoutDashboard,
+  BarChart3,
+  Hotel // Added for project overview
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CalendarDays } from "lucide-react";
 
 export default function Home() {
   return (
     <div className="grid min-h-screen place-items-center p-8">
       <main className="flex flex-col gap-8 items-center">
         <h1 className="text-4xl font-bold">Hotel Database System</h1>
-        <nav className="flex gap-4">
-          <Link 
-            href="/documentation"
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-          >
-            Technical Documentation
+        <nav className="flex flex-wrap gap-4 justify-center">
+          <Link href="/documentation">
+            <Button variant="outline" className="gap-2">
+              <FileText className="h-4 w-4" />
+              Technical Documentation
+            </Button>
           </Link>
-          <Link 
-            href="/schema"
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-          >
-            Database Schema
+          <Link href="/schema">
+            <Button variant="outline" className="gap-2">
+              <Database className="h-4 w-4" />
+              Database Schema
+            </Button>
+          </Link>
+          <Link href="/project-overview">
+            <Button variant="outline" className="gap-2">
+              <Hotel className="h-4 w-4" />
+              Project Overview
+            </Button>
           </Link>
           <Link href="/bookings">
             <Button variant="outline" className="gap-2">
@@ -26,17 +39,17 @@ export default function Home() {
               Bookinger
             </Button>
           </Link>
-          <Link 
-            href="/diagrams"
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-          >
-            Database Diagrams
+          <Link href="/diagrams">
+            <Button variant="outline" className="gap-2">
+              <LayoutDashboard className="h-4 w-4" />
+              Database Diagrams
+            </Button>
           </Link>
-          <Link 
-            href="/statistics"
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-          >
-            Statistics
+          <Link href="/statistics">
+            <Button variant="outline" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Statistics
+            </Button>
           </Link>
         </nav>
       </main>

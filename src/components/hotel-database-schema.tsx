@@ -13,6 +13,8 @@ import { Moon, Sun } from 'lucide-react'
 import { useTheme } from "next-themes"
 import { ThemeProvider } from "next-themes"
 import DatabaseGenerator from "./database-generator"
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 
 const tables = [
   {
@@ -826,7 +828,7 @@ Sikkerhedskopiering:
 • Normalisering: Databasen følger 3NF/BCNF normalform
 • Begrænsninger: CHECK begrænsninger for forretningsregler
 • Indekser: Sammensatte indekser for optimerede sammenkoblinger
-• Udløsere: Automatisk datavalidering og revisionslogning
+�� Udløsere: Automatisk datavalidering og revisionslogning
 
 Designmønstre:
 • Stjernestruktur for bookinganalyse
@@ -937,24 +939,40 @@ Overvågning:
 function generateSQLCommand(viewOrProcedure: any, params: Record<string, any>) {
   let sqlCommand = viewOrProcedure.sqlCommand;
 
-  // Debug: Log parameters
-  console.log("Parameters:", params);
-
   // Replace parameters in SQL command
   Object.entries(params).forEach(([key, value]) => {
-    const paramValue = typeof value === 'boolean' 
-      ? (value ? '1' : '0') 
-      : typeof value === 'string' 
-        ? `'${value}'` 
-        : value;
+    // Format the value based on its type
+    const paramValue = formatParamValue(value);
     
-    sqlCommand = sqlCommand.replace(new RegExp(`@${key}\\b`, 'g'), paramValue);
+    // Replace both @param_name and p_param_name patterns
+    sqlCommand = sqlCommand
+      .replace(new RegExp(`@${key}\\b`, 'g'), paramValue)
+      .replace(new RegExp(`p_${key}\\b`, 'g'), paramValue);
   });
 
-  // Debug: Log generated SQL command
-  console.log("Generated SQL Command:", sqlCommand);
-
   return sqlCommand;
+}
+
+// Helper function to format parameter values based on their type
+function formatParamValue(value: any): string {
+  if (value === null || value === undefined) {
+    return 'NULL';
+  }
+  
+  switch (typeof value) {
+    case 'boolean':
+      return value ? '1' : '0';
+    case 'number':
+      return value.toString();
+    case 'string':
+      // Check if it's a date string
+      if (value.match(/^\d{4}-\d{2}-\d{2}/)) {
+        return `'${value}'`;
+      }
+      return `'${value.replace(/'/g, "''")}'`; // Escape single quotes
+    default:
+      return `'${String(value)}'`;
+  }
 }
 
 // Add this interface for type safety
@@ -981,7 +999,7 @@ function SQLParameterInputs({
     <div className="grid grid-cols-2 gap-2 mb-4">
       {Object.entries(parameters).map(([key, value]) => (
         <div key={key} className="flex flex-col">
-          <label className="text-sm font-medium">{key}</label>
+          <label className="text-sm font-medium truncate mb-1">{key}</label>
           {typeof value === 'boolean' ? (
             <input
               type="checkbox"
@@ -994,21 +1012,21 @@ function SQLParameterInputs({
               type="number"
               value={value}
               onChange={(e) => handleChange({ ...parameters, [key]: Number(e.target.value) })}
-              className="border rounded px-2 py-1"
+              className="border rounded px-2 py-1 text-sm w-full"
             />
           ) : key.includes('dato') ? (
             <input
               type="date"
               value={value as string}
               onChange={(e) => handleChange({ ...parameters, [key]: e.target.value })}
-              className="border rounded px-2 py-1"
+              className="border rounded px-2 py-1 text-sm w-full"
             />
           ) : (
             <input
               type="text"
               value={value as string}
               onChange={(e) => handleChange({ ...parameters, [key]: e.target.value })}
-              className="border rounded px-2 py-1"
+              className="border rounded px-2 py-1 text-sm w-full"
             />
           )}
         </div>
@@ -1024,29 +1042,35 @@ export default function HotelDatabaseSchema() {
 
   const [procedureParams, setProcedureParams] = useState<SQLParams>({
     gæste_id: 1,
-    hotel_id: 2,
+    hotel_id: 1,
     værelse_id: 101,
     check_ind_dato: new Date().toISOString().split('T')[0],
     check_ud_dato: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+    ny_status: 'Bekræftet',
+    start_dato: new Date().toISOString().split('T')[0],
+    slut_dato: new Date(Date.now() + 86400000 * 30).toISOString().split('T')[0], // 30 days ahead
     online_booking: true,
-    fdm_medlem: false
+    fdm_medlem: false,
+    antal_gæster: 2,
+    total_pris: 1000,
+    booking_status: 'Bekræftet'
   });
 
-  const [generatedSQL, setGeneratedSQL] = useState('');
+  const [generatedSQLs, setGeneratedSQLs] = useState<Record<string, string>>({});
 
-  // Remove the useEffect and make handleGenerate more explicit
-  const handleGenerate = () => {
-    console.log("Generate button clicked"); // Debug log
-    const procedure = procedures.find(p => p.name === 'sp_opret_booking');
-    console.log("Found procedure:", procedure); // Log if procedure is found
+  // Update the handleGenerate function to handle all procedures
+  const handleGenerate = (procedureName: string) => {
+    const procedure = procedures.find(p => p.name === procedureName);
     
     if (procedure) {
       try {
         const sql = generateSQLCommand(procedure, procedureParams);
-        console.log("Generated SQL:", sql); // Debug log
-        setGeneratedSQL(sql);
+        setGeneratedSQLs(prev => ({
+          ...prev,
+          [procedureName]: sql
+        }));
       } catch (error) {
-        console.error("Error generating SQL:", error);
+        console.error(`Error generating SQL for ${procedureName}:`, error);
       }
     }
   };
@@ -1054,7 +1078,7 @@ export default function HotelDatabaseSchema() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <div className="min-h-screen bg-background text-foreground">
-        <Card className="w-full max-w-4xl mx-auto">
+        <Card className="w-full max-w-[1400px] mx-auto">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>Hotel Database Skema</CardTitle>
@@ -1124,9 +1148,17 @@ export default function HotelDatabaseSchema() {
                           />
                         </TableCell>
                         <TableCell>
-                          <pre className="whitespace-pre-wrap overflow-x-auto">
+                          <SyntaxHighlighter
+                            language="sql"
+                            style={vscDarkPlus}
+                            customStyle={{
+                              padding: '1rem',
+                              borderRadius: '0.5rem',
+                              margin: 0,
+                            }}
+                          >
                             {generateSQLCommand(view, viewParams)}
-                          </pre>
+                          </SyntaxHighlighter>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1137,37 +1169,53 @@ export default function HotelDatabaseSchema() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Procedure Name</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Parameters</TableHead>
+                      <TableHead className="w-[120px]">Procedure Name</TableHead>
+                      <TableHead className="w-[150px]">Description</TableHead>
+                      <TableHead className="w-[200px]">Parameters</TableHead>
                       <TableHead>SQL Command</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {procedures.map((procedure) => (
-                      <TableRow key={procedure.name}>
-                        <TableCell>{procedure.name}</TableCell>
+                      <TableRow key={procedure.name} className="align-top">
+                        <TableCell className="whitespace-nowrap">{procedure.name}</TableCell>
                         <TableCell>{procedure.description}</TableCell>
                         <TableCell>
-                          <SQLParameterInputs 
-                            parameters={procedureParams} 
-                            onParameterChange={setProcedureParams}
-                          />
-                          <Button 
-                            type="button"
-                            onClick={() => {
-                              console.log("Button clicked"); // Debug log
-                              handleGenerate();
-                            }}
-                            className="mt-2"
-                          >
-                            Generate SQL
-                          </Button>
+                          <div className="space-y-2">
+                            <SQLParameterInputs 
+                              parameters={procedureParams} 
+                              onParameterChange={setProcedureParams}
+                            />
+                            <Button 
+                              type="button"
+                              onClick={() => handleGenerate(procedure.name)}
+                              className="w-full"
+                            >
+                              Generate SQL
+                            </Button>
+                          </div>
                         </TableCell>
-                        <TableCell>
-                          <pre className="whitespace-pre-wrap overflow-x-auto">
-                            {procedure.name === 'sp_opret_booking' ? generatedSQL : ''}
-                          </pre>
+                        <TableCell className="w-[600px]">
+                          {generatedSQLs[procedure.name] && (
+                            <SyntaxHighlighter
+                              language="sql"
+                              style={vscDarkPlus}
+                              customStyle={{
+                                padding: '0.75rem',
+                                borderRadius: '0.5rem',
+                                margin: 0,
+                                fontSize: '0.75rem',
+                                lineHeight: '1.2',
+                                maxHeight: '500px',
+                                width: '100%',
+                                overflow: 'auto'
+                              }}
+                              showLineNumbers={true}
+                              wrapLongLines={true}
+                            >
+                              {generatedSQLs[procedure.name]}
+                            </SyntaxHighlighter>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1226,4 +1274,5 @@ function TemaSkift() {
     </Button>
   )
 }
+
 
