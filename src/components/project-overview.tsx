@@ -90,6 +90,17 @@ WHERE b.booking_id IS NULL
           <p className="mb-4">
             Vi har implementeret et automatisk rabatsystem ved hjælp af en SQL trigger. Her er triggerens funktionalitet:
           </p>
+          
+          <div className="bg-black p-3 rounded-lg mb-4">
+            <Image
+              src="/images/image.png"
+              alt="Discount System Flow Diagram"
+              width={600}
+              height={200}
+              className="w-full"
+            />
+          </div>
+
           <pre className="bg-muted p-4 rounded-md overflow-x-auto font-mono text-sm">
             <code className="text-foreground">
               {`CREATE TRIGGER beregn_rabat
