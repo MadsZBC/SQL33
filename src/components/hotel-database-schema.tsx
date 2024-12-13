@@ -15,6 +15,7 @@ import { ThemeProvider } from "next-themes"
 import DatabaseGenerator from "./database-generator"
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
+import { MermaidDiagram } from './mermaid-diagram';
 
 const tables = [
   {
@@ -398,6 +399,26 @@ const theoryContent = [
     title: "Normalisering",
     content: `
 Normaliseringsprocessen er fundamental for databasedesign og sikrer dataintegritet gennem systematisk organisering af data. Her gennemgås hver normalform i detaljer:
+
+\`\`\`mermaid
+flowchart TD
+    A[Database Normalisering] --> B[1NF: Grundlæggende Rydning]
+    A --> C[2NF: Fjern Overlap]
+    A --> D[3NF: Ryd op i Forbindelser]
+    A --> E[BCNF: Avanceret Oprydning]
+
+    B --> B1[Eksempel: Gæsteliste]
+    B1[Adskil gentagne felter] --> B2[Telefoner i særskilt tabel]
+
+    C --> C1[Eksempel: Booking]
+    C1[Fjern delte informationer] --> C2[Separer værelse og pris]
+
+    D --> D1[Eksempel: Medarbejderdata]
+    D1[Fjern indirekte afhængigheder] --> D2[Adskil stillingsbetegnelse]
+
+    E --> E1[Eksempel: Komplekse Systemer]
+    E1[Optimer komplicerede relationer] --> E2[Forfin datastruktur]
+\`\`\`
 
 1. Første Normalform (1NF):
 • Definition: Eliminerer gentagne grupper og sikrer atomare værdier
@@ -828,7 +849,7 @@ Sikkerhedskopiering:
 • Normalisering: Databasen følger 3NF/BCNF normalform
 • Begrænsninger: CHECK begrænsninger for forretningsregler
 • Indekser: Sammensatte indekser for optimerede sammenkoblinger
-�� Udløsere: Automatisk datavalidering og revisionslogning
+• Udløsere: Automatisk datavalidering og revisionslogning
 
 Designmønstre:
 • Stjernestruktur for bookinganalyse
@@ -1228,7 +1249,21 @@ export default function HotelDatabaseSchema() {
                     <AccordionItem value={`item-${index}`} key={index}>
                       <AccordionTrigger>{item.title}</AccordionTrigger>
                       <AccordionContent>
-                        <pre className="whitespace-pre-wrap">{item.content}</pre>
+                        {item.content.includes('```mermaid') ? (
+                          <>
+                            <MermaidDiagram 
+                              chart={item.content
+                                .split('```mermaid')[1]
+                                .split('```')[0]
+                                .trim()} 
+                            />
+                            <pre className="whitespace-pre-wrap">
+                              {item.content.split('```mermaid')[2]}
+                            </pre>
+                          </>
+                        ) : (
+                          <pre className="whitespace-pre-wrap">{item.content}</pre>
+                        )}
                       </AccordionContent>
                     </AccordionItem>
                   ))}
